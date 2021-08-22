@@ -1,7 +1,7 @@
 - 👋 Hi, I’m Cahit Sinan Hamarat
-- 👀 I’m interested in programming and planning tools for bussinesses
+- 👀 I’m interested in programming and planning tools for business
 - 🌱 I’m currently learning python
-- 💞️ I’m looking to collaborate on ...
+- 💞️ I’m looking to collaborate on erp solutions and tools for production scheduling and business planning
 - 📫 How to reach me cshamarat@gmail.com
 
 <!---
