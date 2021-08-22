@@ -1,4 +1,4 @@
-- 👋 Hi, I’m @cahitsinanhamarat
+- 👋 Hi, I’m Cahit Sinan Hamarat
 - 👀 I’m interested in programming and planning tools for bussinesses
 - 🌱 I’m currently learning python
 - 💞️ I’m looking to collaborate on ...
