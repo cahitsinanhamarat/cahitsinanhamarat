@@ -1,182 +1,164 @@
 /**
- * Türkiye’ye/Türkiye’den uçan taşıyıcılar + OTA’lar.
- * Skyscanner her zaman #1. Ücretli API yok — deep-link odaklı.
+ * Çalışan deep-link kaynakları (doğrulanmış / bilinen arama URL şeması).
+ * Skyscanner her zaman #1. Kırık / uydurma booking şablonları YOK.
+ * Ücretli API yok — yalnızca link-out.
  */
-import trAirlinesData from "@/data/tr-airlines.json";
 import type { OfferMode, SourceStatus } from "./types";
 
 export type SourceDef = {
   id: string;
   name: string;
   priority: number;
-  kind: "ota" | "airline" | "meta";
+  kind: "ota" | "airline";
   airlineIata?: string;
-  canLive: boolean;
-  noteLive: string;
+  active: boolean;
   noteLinkOut: string;
 };
 
-type AirlineJson = {
-  airlines: { iata: string; name: string; country: string; hasTemplate: boolean }[];
-  bookTemplates: Record<string, string>;
-};
-
-const data = trAirlinesData as AirlineJson;
-
-export const AIRLINE_BOOK_TEMPLATES: Record<string, string> = data.bookTemplates;
-
-/** OTA / meta — Skyscanner birinci. */
+/**
+ * OTA — HTTP denetiminde 200/202 veya bilinen geçerli arama şeması.
+ * 403 bot engeli olan TR OTAlar tarayıcıda açılabilir; yine de yalnızca
+ * parametreli arama URL’si bilinenler tutuldu.
+ */
 const OTA_SOURCES: SourceDef[] = [
   {
     id: "skyscanner",
     name: "Skyscanner",
     priority: 1,
     kind: "ota",
-    canLive: true,
-    noteLive: "Ücretsiz önizleme veya isteğe bağlı API",
-    noteLinkOut: "skyscanner.com.tr deep-link",
-  },
-  {
-    id: "enuygun",
-    name: "Enuygun",
-    priority: 2,
-    kind: "ota",
-    canLive: false,
-    noteLive: "",
-    noteLinkOut: "enuygun.com deep-link",
+    active: true,
+    noteLinkOut: "skyscanner.com.tr gidiş-dönüş arama",
   },
   {
     id: "kayak",
     name: "Kayak",
-    priority: 3,
+    priority: 2,
     kind: "ota",
-    canLive: false,
-    noteLive: "",
-    noteLinkOut: "kayak.com.tr deep-link",
+    active: true,
+    noteLinkOut: "kayak.com.tr /flights/{o}-{d}/{dep}/{ret}",
   },
   {
     id: "google-flights",
     name: "Google Flights",
-    priority: 4,
+    priority: 3,
     kind: "ota",
-    canLive: true,
-    noteLive: "Ücretsiz genel web önizleme (best-effort)",
-    noteLinkOut: "Google Flights deep-link",
-  },
-  {
-    id: "turna",
-    name: "Turna",
-    priority: 5,
-    kind: "ota",
-    canLive: false,
-    noteLive: "",
-    noteLinkOut: "turna.com deep-link",
-  },
-  {
-    id: "ucuzabilet",
-    name: "Ucuzabilet",
-    priority: 6,
-    kind: "ota",
-    canLive: false,
-    noteLive: "",
-    noteLinkOut: "ucuzabilet.com deep-link",
-  },
-  {
-    id: "biletall",
-    name: "Biletall",
-    priority: 7,
-    kind: "ota",
-    canLive: false,
-    noteLive: "",
-    noteLinkOut: "biletall.com deep-link",
-  },
-  {
-    id: "obilet",
-    name: "Obilet",
-    priority: 8,
-    kind: "ota",
-    canLive: false,
-    noteLive: "",
-    noteLinkOut: "obilet.com uçuş deep-link",
+    active: true,
+    noteLinkOut: "Google Flights #flt= round-trip",
   },
   {
     id: "kiwi",
     name: "Kiwi.com",
-    priority: 9,
+    priority: 4,
     kind: "ota",
-    canLive: false,
-    noteLive: "",
-    noteLinkOut: "kiwi.com deep-link",
+    active: true,
+    noteLinkOut: "kiwi.com /search/results/{o}-{d}/{dep}/{ret}",
   },
   {
     id: "momondo",
     name: "Momondo",
-    priority: 10,
+    priority: 5,
     kind: "ota",
-    canLive: false,
-    noteLive: "",
-    noteLinkOut: "momondo.com deep-link",
-  },
-  {
-    id: "expedia",
-    name: "Expedia",
-    priority: 11,
-    kind: "ota",
-    canLive: false,
-    noteLive: "",
-    noteLinkOut: "expedia.com deep-link",
-  },
-  {
-    id: "booking",
-    name: "Booking.com Flights",
-    priority: 12,
-    kind: "ota",
-    canLive: false,
-    noteLive: "",
-    noteLinkOut: "Booking flights deep-link",
+    active: true,
+    noteLinkOut: "momondo.com /flight-search/{o}-{d}/{dep}/{ret}",
   },
   {
     id: "trip",
     name: "Trip.com",
-    priority: 13,
+    priority: 6,
     kind: "ota",
-    canLive: false,
-    noteLive: "",
-    noteLinkOut: "trip.com deep-link",
+    active: true,
+    noteLinkOut: "trip.com roundtrip deep-link",
+  },
+  {
+    id: "booking",
+    name: "Booking.com Flights",
+    priority: 7,
+    kind: "ota",
+    active: true,
+    noteLinkOut: "booking.com/flights round-trip params",
   },
   {
     id: "edreams",
     name: "eDreams",
-    priority: 14,
+    priority: 8,
     kind: "ota",
-    canLive: false,
-    noteLive: "",
-    noteLinkOut: "edreams.com deep-link",
+    active: true,
+    noteLinkOut: "edreams.com #results type=R",
+  },
+  {
+    id: "expedia",
+    name: "Expedia",
+    priority: 9,
+    kind: "ota",
+    active: true,
+    noteLinkOut: "expedia.com Flights-Search roundtrip",
   },
 ];
 
-/** Havayolları — OpenFlights TR rotaları + güncel taşıyıcı listesi. */
-const AIRLINE_SOURCES: SourceDef[] = data.airlines
-  .slice()
-  .sort((a, b) => a.name.localeCompare(b.name, "tr"))
-  .map((a, idx) => ({
-    id: `airline-${a.iata.toLowerCase()}`,
-    name: a.name,
-    priority: 100 + idx,
-    kind: "airline" as const,
-    airlineIata: a.iata,
-    canLive: false,
-    noteLive: "",
-    noteLinkOut: `${a.name} (${a.iata}) rezervasyon / arama deep-link`,
-  }));
+/**
+ * Havayolları — kendi sitelerindeki uydurma ?origin= şablonları çoğu 404/403.
+ * Bunun yerine Skyscanner airline filtresi (çalışan Skyscanner URL + airlines=)
+ * kullanılıyor; kullanıcı gerçek bir arama sayfasına iner.
+ * Yalnızca TR çıkışlı sık uçan / doğrulanabilir taşıyıcılar.
+ */
+const VERIFIED_AIRLINES: { iata: string; name: string }[] = [
+  { iata: "TK", name: "Turkish Airlines" },
+  { iata: "PC", name: "Pegasus" },
+  { iata: "VF", name: "AJet" },
+  { iata: "XQ", name: "SunExpress" },
+  { iata: "XC", name: "Corendon Airlines" },
+  { iata: "W6", name: "Wizz Air" },
+  { iata: "FR", name: "Ryanair" },
+  { iata: "A3", name: "Aegean Airlines" },
+  { iata: "LH", name: "Lufthansa" },
+  { iata: "LX", name: "SWISS" },
+  { iata: "OS", name: "Austrian Airlines" },
+  { iata: "AF", name: "Air France" },
+  { iata: "KL", name: "KLM" },
+  { iata: "BA", name: "British Airways" },
+  { iata: "QR", name: "Qatar Airways" },
+  { iata: "EK", name: "Emirates" },
+  { iata: "EY", name: "Etihad Airways" },
+  { iata: "EW", name: "Eurowings" },
+  { iata: "U2", name: "easyJet" },
+  { iata: "LO", name: "LOT Polish Airlines" },
+];
+
+const AIRLINE_SOURCES: SourceDef[] = VERIFIED_AIRLINES.map((a, idx) => ({
+  id: `airline-${a.iata.toLowerCase()}`,
+  name: a.name,
+  priority: 100 + idx,
+  kind: "airline" as const,
+  airlineIata: a.iata,
+  active: true,
+  noteLinkOut: `Skyscanner filtreli arama · ${a.iata}`,
+}));
+
+/** Eski/kırık kaynaklar — sonuçlara dahil edilmez (referans). */
+export const INACTIVE_SOURCES: { id: string; reason: string }[] = [
+  { id: "enuygun", reason: "Bot 403; parametreli URL güvenilir değil" },
+  { id: "turna", reason: "Bot 403 / kırık arama path" },
+  { id: "ucuzabilet", reason: "Bot 403 / kırık arama path" },
+  { id: "biletall", reason: "Zaman aşımı / yanıt yok" },
+  { id: "obilet", reason: "Uçuş deep-link doğrulanmadı (genel 200)" },
+  {
+    id: "airline-* (eski şablonlar)",
+    reason:
+      "Çoğu airline-site ?origin= şablonu 404/403 veya ana sayfaya düşüyor; listeden çıkarıldı",
+  },
+];
 
 export const APPROVED_SOURCES: SourceDef[] = [
   ...OTA_SOURCES,
   ...AIRLINE_SOURCES,
-];
+].filter((s) => s.active);
 
 export const SOURCE_COUNT = APPROVED_SOURCES.length;
 export const AIRLINE_SOURCE_COUNT = AIRLINE_SOURCES.length;
+export const OTA_SOURCE_COUNT = OTA_SOURCES.length;
+
+/** Geriye uyumluluk — artık kullanılmıyor; boş. */
+export const AIRLINE_BOOK_TEMPLATES: Record<string, string> = {};
 
 export function hasSkyscannerKey(): boolean {
   return Boolean(process.env.SKYSCANNER_RAPIDAPI_KEY?.trim());
@@ -206,31 +188,22 @@ export function getKeyPresence() {
 }
 
 export function resolveSourceMode(sourceId: string): OfferMode {
-  if (forceDemo()) return "demo";
+  // Ücretsiz yolda asla demo/preview fiyat yok
+  if (forceDemo()) return "link-out";
   if (sourceId === "skyscanner" && hasSkyscannerKey()) return "live";
   if (sourceId === "kiwi" && hasKiwiKey()) return "live";
-  if (sourceId === "google-flights") return "link-out";
   return "link-out";
 }
 
 export function buildSourceStatuses(demo: boolean): SourceStatus[] {
   return APPROVED_SOURCES.map((s) => {
-    if (demo) {
-      return {
-        id: s.id,
-        name: s.name,
-        priority: s.priority,
-        mode: "demo" as const,
-        note: "Demo",
-      };
-    }
-    const mode = resolveSourceMode(s.id);
+    const mode = demo ? ("link-out" as const) : resolveSourceMode(s.id);
     return {
       id: s.id,
       name: s.name,
       priority: s.priority,
       mode,
-      note: mode === "live" ? s.noteLive : s.noteLinkOut,
+      note: s.noteLinkOut,
     };
   });
 }

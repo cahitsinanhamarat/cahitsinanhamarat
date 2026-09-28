@@ -104,9 +104,9 @@ async function main() {
   console.log(
     `Price ascending (per-source): ${isPriceAscending(result.cheapestPerSource) ? "PASS" : "FAIL"}`
   );
-  console.log(
-    `Priced rows: ${result.rows.filter((r) => r.price != null).length}`
-  );
+  const priced = result.rows.filter((r) => r.price != null).length;
+  console.log(`Priced rows (expect 0 on free path): ${priced}`);
+  console.log(`No fake prices: ${priced === 0 ? "PASS" : "FAIL"}`);
 }
 
 main().catch((e) => {

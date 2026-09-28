@@ -70,18 +70,17 @@ export default function HomePage() {
           </h1>
           <p className="anim-rise max-w-xl text-base text-[var(--muted)] sm:text-lg">
             Tarih aralığı ve 2–21 gün konaklamaya uyan gidiş-dönüşleri üretin;
-            Skyscanner #1 + Türkiye’ye uçan havayolları ve OTAlarda karşılaştırın.
-            Ücretli API zorunlu değil — önizleme fiyat + deep-link.
+            Skyscanner #1 + doğrulanmış OTA ve havayolu aramalarında karşılaştırın.
+            Yanlış fiyat yok — canlı fiyat kaynak sitesinde.
           </p>
 
           <div className="anim-rise w-full max-w-3xl rounded-xl border border-[var(--line)] bg-white/55 px-4 py-3 text-sm text-[var(--muted)] backdrop-blur">
             <p className="font-semibold text-[var(--sea-deep)]">
-              Ücretsiz yol: deep-link + best-effort fiyat önizleme
+              Ücretsiz yol: yalnızca çalışan deep-link’ler
             </p>
             <p className="mt-1 text-xs">
-              Sahte demo fiyat yok. Skyscanner öncelikli; Türkiye çıkışlı
-              havayolları dahil. Aktarmasız filtresi desteklenen linklere
-              stops=0 / preferdirects ekler.
+              Uydurma / önizleme TRY fiyatı yok. Fiyat sütunu “Sitede gör”;
+              Skyscanner öncelikli; havayolları Skyscanner filtreli arama ile açılır.
             </p>
           </div>
 

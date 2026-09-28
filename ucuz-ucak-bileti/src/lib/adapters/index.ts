@@ -1,5 +1,3 @@
-import { peekFreePrices, applyPreviewPrices } from "./free-prices";
-import type { AdapterResult } from "./types";
 import { expandDatePairs } from "../dates";
 import { buildResultRows, buildTripOptions } from "../deep-links";
 import {
@@ -8,9 +6,6 @@ import {
   SOURCE_COUNT,
   buildSourceStatuses,
   getKeyPresence,
-  hasAmadeusKeys,
-  hasKiwiKey,
-  hasSkyscannerKey,
 } from "../sources";
 import {
   sortCheapestPerSource,
@@ -19,7 +14,6 @@ import {
 import { normalizeStayDays } from "../stays";
 import type {
   CheapestPerSource,
-  FlightOffer,
   ResultRow,
   SearchRequest,
   SearchResponse,
@@ -49,10 +43,12 @@ function cheapestPerSource(rows: ResultRow[]): CheapestPerSource[] {
   );
 }
 
-function anyOptionalLiveKey(): boolean {
-  return hasSkyscannerKey() || hasKiwiKey() || hasAmadeusKeys();
-}
-
+/**
+ * Ücretsiz yol: deep-link satırları.
+ * Sayısal fiyat YOK — uydurma / puppeteer “önizleme” / demo fiyat yok.
+ * Fiyat yalnızca gerçek partner API (isteğe bağlı anahtar) ile gelirse
+ * ayrı adaptörler eklenir; şu an hepsi “Sitede gör”.
+ */
 export async function runSearch(
   req: SearchRequest
 ): Promise<SearchResponse> {
@@ -61,7 +57,6 @@ export async function runSearch(
   const stayDays = normalizeStayDays(req.stayDays);
   const nonstopOnly = Boolean(req.nonstopOnly);
 
-  // Çok kaynak × tarih: çift sayısını sınırla
   const { pairs, total, sampled } = expandDatePairs(
     req.startDate,
     req.endDate,
@@ -101,7 +96,7 @@ export async function runSearch(
     pairs,
     nonstopOnly
   );
-  let rows = buildResultRows(
+  const rows = buildResultRows(
     origin,
     destination,
     pairs,
@@ -109,57 +104,28 @@ export async function runSearch(
     APPROVED_SOURCES
   );
 
-  let offers: FlightOffer[] = [];
-  const adapters: AdapterResult[] = [];
-  let freePath = !anyOptionalLiveKey();
-
-  // Ücretsiz fiyat önizleme (CAPTCHA bypass yok)
-  const peek = await peekFreePrices(
-    origin,
-    destination,
-    pairs,
-    nonstopOnly
-  );
-  if (peek.hits.length) {
-    rows = applyPreviewPrices(rows, peek.hits);
-  }
-
   rows.sort(sortResultRows);
   const perSource = cheapestPerSource(rows);
-  const overallCheapest = rows.find((r) => r.price != null) ?? null;
-  const pricedCount = rows.filter((r) => r.price != null).length;
 
-  let message =
+  const message =
     `Ücretsiz yol: ${total} tarih çifti` +
     (sampled ? ` (tabloda ${pairs.length} örnek)` : "") +
-    ` × ${SOURCE_COUNT} kaynak (${AIRLINE_SOURCE_COUNT} havayolu) = ${rows.length} satır` +
+    ` × ${SOURCE_COUNT} çalışan kaynak (${AIRLINE_SOURCE_COUNT} havayolu Skyscanner filtreli) = ${rows.length} satır` +
     (nonstopOnly ? " · yalnızca aktarmasız niyeti" : "") +
-    ".";
-
-  if (pricedCount) {
-    message += ` ${pricedCount} satırda ücretsiz önizleme fiyatı var (Google Flights best-effort; resmi partner API değil).`;
-  } else {
-    message +=
-      " Sayısal fiyat şu an alınamadı" +
-      (peek.error ? ` (${peek.error})` : "") +
-      " — sütunda “Sitede gör”; deep-link’ler hazır.";
-  }
-
-  void offers;
-  void adapters;
+    ". Sayısal fiyat yok — yanlış fiyat göstermektense “Sitede gör”; canlı fiyat kaynak sitesinde.";
 
   return {
     rows,
     rowsTotal: rows.length,
     cheapestPerSource: perSource,
-    overallCheapest,
+    overallCheapest: null,
     tripOptions,
     tripOptionsTotal: total,
     tripOptionsSampled: sampled,
     offers: [],
     sources,
     datePairsSearched: pairs.length,
-    freePath,
+    freePath: true,
     demo: false,
     nonstopOnly,
     keys: getKeyPresence(),
