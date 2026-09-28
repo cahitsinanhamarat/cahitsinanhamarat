@@ -11,7 +11,7 @@ import type { SearchResponse } from "@/lib/types";
 
 export default function HomePage() {
   const [values, setValues] = useState<SearchFormValues>({
-    origin: "IST",
+    origin: "CITY:TR:istanbul",
     destination: "AMS",
     startDate: "2026-04-01",
     endDate: "2026-06-01",
@@ -110,8 +110,8 @@ export default function HomePage() {
       {!result && !loading && (
         <section className="mx-auto max-w-4xl px-4 pb-16 pt-2 text-sm text-[var(--muted)]">
           <p>
-            Örnek: İstanbul → Amsterdam, 1 Nis – 1 Haz, 3 ve 4 gün (isterseniz
-            2–21 arası herhangi bir kombinasyon).
+            Örnek: İstanbul (tüm havalimanları) → Amsterdam, 1 Nis – 1 Haz, 3 ve 4
+            gün. Çoklu havalimanlı şehirlerde “tüm havalimanları” seçilebilir.
           </p>
         </section>
       )}

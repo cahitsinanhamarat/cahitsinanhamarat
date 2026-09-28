@@ -52,8 +52,9 @@ function cheapestPerSource(rows: ResultRow[]): CheapestPerSource[] {
 export async function runSearch(
   req: SearchRequest
 ): Promise<SearchResponse> {
-  const origin = req.origin.toUpperCase().trim();
-  const destination = req.destination.toUpperCase().trim();
+  // Place kodlarını bozma: CITY:TR:istanbul → upper yalnızca IATA için
+  const origin = req.origin.trim();
+  const destination = req.destination.trim();
   const stayDays = normalizeStayDays(req.stayDays);
   const nonstopOnly = Boolean(req.nonstopOnly);
 

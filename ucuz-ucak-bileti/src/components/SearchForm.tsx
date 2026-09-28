@@ -48,14 +48,14 @@ export function SearchForm({ values, onChange, onSubmit, loading }: Props) {
         <AirportPicker
           label="Kalkış"
           value={values.origin}
-          excludeIata={values.destination}
-          onChange={(iata) => onChange({ ...values, origin: iata })}
+          excludeCode={values.destination}
+          onChange={(code) => onChange({ ...values, origin: code })}
         />
         <AirportPicker
           label="Varış"
           value={values.destination}
-          excludeIata={values.origin}
-          onChange={(iata) => onChange({ ...values, destination: iata })}
+          excludeCode={values.origin}
+          onChange={(code) => onChange({ ...values, destination: code })}
         />
 
         <label className="flex flex-col gap-1.5 text-sm">

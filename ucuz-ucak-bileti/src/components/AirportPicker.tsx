@@ -8,30 +8,43 @@ import {
   useState,
 } from "react";
 import {
-  airportLabel,
-  getAirport,
-  searchAirports,
-  type Airport,
-} from "@/lib/airports";
+  placeLabel,
+  searchPlaces,
+  type PlaceSuggestion,
+} from "@/lib/places";
 
 type Props = {
   label: string;
   value: string;
-  onChange: (iata: string) => void;
-  excludeIata?: string;
+  onChange: (code: string) => void;
+  excludeCode?: string;
 };
 
+function suggestionKey(s: PlaceSuggestion): string {
+  return s.kind === "city" ? s.group.code : s.airport.iata;
+}
+
+function suggestionLabel(s: PlaceSuggestion): string {
+  if (s.kind === "city") {
+    return `${s.group.label} · ${s.group.airports.map((a) => a.iata).join(", ")}`;
+  }
+  return `${s.airport.city} — ${s.airport.airport} (${s.airport.iata})`;
+}
+
 /**
- * Aramalı havalimanı seçici.
- * Önemli: liste öğelerinde onMouseDown + preventDefault —
- * aksi halde document mousedown dropdown’u click’ten önce kapatır (seçim bozulur).
+ * Aramalı yer seçici — tek IATA veya “şehir (tüm havalimanları)”.
+ * Liste: onMouseDown + preventDefault (seçim bozulmasın).
  */
-export function AirportPicker({ label, value, onChange, excludeIata }: Props) {
+export function AirportPicker({
+  label,
+  value,
+  onChange,
+  excludeCode,
+}: Props) {
   const listId = useId();
-  const selected = getAirport(value);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState(() =>
-    selected ? airportLabel(selected) : value || ""
+    value ? placeLabel(value) : ""
   );
   const [highlight, setHighlight] = useState(0);
   const deferredQuery = useDeferredValue(query);
@@ -39,13 +52,10 @@ export function AirportPicker({ label, value, onChange, excludeIata }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const pickingRef = useRef(false);
 
-  // Dışarıdan value değişince (ör. varsayılan IST) etiketi senkronla —
-  // kullanıcı yazarken ezme
   useEffect(() => {
     if (pickingRef.current) return;
     if (open) return;
-    const a = getAirport(value);
-    setQuery(a ? airportLabel(a) : value || "");
+    setQuery(value ? placeLabel(value) : "");
   }, [value, open]);
 
   useEffect(() => {
@@ -53,31 +63,40 @@ export function AirportPicker({ label, value, onChange, excludeIata }: Props) {
       if (pickingRef.current) return;
       if (!rootRef.current?.contains(e.target as Node)) {
         setOpen(false);
-        // Seçili değeri geri yaz
-        const a = getAirport(value);
-        if (a) setQuery(airportLabel(a));
+        if (value) setQuery(placeLabel(value));
       }
     }
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
   }, [value]);
 
-  const results = searchAirports(
-    // Seçili tam etiket görünürken arama için IATA kullan
-    open && selected && query === airportLabel(selected) ? selected.iata : deferredQuery,
-    50
-  ).filter((a) => a.iata !== excludeIata?.toUpperCase());
+  const searchQ =
+    open && value && query === placeLabel(value)
+      ? // Seçili etiket görünürken şehir adıyla ara (İstanbul → tüm + IST/SAW)
+        value.startsWith("CITY:")
+        ? value.split(":").slice(2).join(" ").replace(/-/g, " ")
+        : value
+      : deferredQuery;
+
+  const results = searchPlaces(searchQ, 50).filter((s) => {
+    const key = suggestionKey(s);
+    if (!excludeCode) return true;
+    if (key.toLowerCase() === excludeCode.toLowerCase()) return false;
+    // Şehir vs üye IATA çakışmasını UI’da bırak — kullanıcı seçebilir;
+    // API overlap kontrolü yapar
+    return true;
+  });
 
   useEffect(() => {
     setHighlight(0);
   }, [deferredQuery, open]);
 
-  function pick(a: Airport) {
+  function pick(s: PlaceSuggestion) {
     pickingRef.current = true;
-    onChange(a.iata);
-    setQuery(airportLabel(a));
+    const code = suggestionKey(s);
+    onChange(code);
+    setQuery(suggestionLabel(s));
     setOpen(false);
-    // blur sonra picking kilidini aç
     requestAnimationFrame(() => {
       pickingRef.current = false;
       inputRef.current?.blur();
@@ -88,8 +107,7 @@ export function AirportPicker({ label, value, onChange, excludeIata }: Props) {
     if (e.key === "Escape") {
       e.preventDefault();
       setOpen(false);
-      const a = getAirport(value);
-      if (a) setQuery(airportLabel(a));
+      if (value) setQuery(placeLabel(value));
       return;
     }
     if (e.key === "ArrowDown") {
@@ -112,7 +130,10 @@ export function AirportPicker({ label, value, onChange, excludeIata }: Props) {
 
   return (
     <div ref={rootRef} className="relative z-20 flex flex-col gap-1.5 text-sm">
-      <label className="font-semibold text-[var(--sea-deep)]" htmlFor={listId + "-input"}>
+      <label
+        className="font-semibold text-[var(--sea-deep)]"
+        htmlFor={listId + "-input"}
+      >
         {label}
       </label>
       <input
@@ -123,27 +144,27 @@ export function AirportPicker({ label, value, onChange, excludeIata }: Props) {
         aria-controls={listId}
         aria-autocomplete="list"
         aria-activedescendant={
-          open && results[highlight] ? `${listId}-${results[highlight].iata}` : undefined
+          open && results[highlight]
+            ? `${listId}-${suggestionKey(results[highlight])}`
+            : undefined
         }
         autoComplete="off"
         className="rounded-lg border border-[var(--line)] bg-white px-3 py-2.5 outline-none focus:border-[var(--sea)]"
         value={query}
-        placeholder="Şehir veya IATA ara… (ör. İstanbul, AMS)"
+        placeholder="Şehir veya IATA… (ör. İstanbul → tüm / IST / SAW)"
         onChange={(e) => {
           setQuery(e.target.value);
           setOpen(true);
         }}
         onFocus={() => {
           setOpen(true);
-          // Odaklanınca mevcut etiketi seç — kullanıcı hemen yazabilsin
           inputRef.current?.select();
         }}
         onKeyDown={onKeyDown}
       />
-      {selected && !open && (
+      {value && !open && (
         <span className="text-xs text-[var(--muted)]">
-          Seçili: <strong>{selected.iata}</strong> · {selected.city} ·{" "}
-          {selected.country}
+          Seçili: {placeLabel(value)}
         </span>
       )}
       {open && (
@@ -157,39 +178,59 @@ export function AirportPicker({ label, value, onChange, excludeIata }: Props) {
               Sonuç yok — IATA veya şehir adı deneyin
             </li>
           )}
-          {results.map((a, idx) => (
-            <li
-              key={a.iata}
-              id={`${listId}-${a.iata}`}
-              role="option"
-              aria-selected={a.iata === value}
-            >
-              <button
-                type="button"
-                tabIndex={-1}
-                className={`flex w-full flex-col px-3 py-2 text-left hover:bg-[var(--foam)] ${
-                  idx === highlight || a.iata === value
-                    ? "bg-[var(--foam)]"
-                    : ""
-                }`}
-                onMouseDown={(e) => {
-                  // Kritik: mousedown default’u engelle — input blur/doc close click’i yutmasın
-                  e.preventDefault();
-                  e.stopPropagation();
-                  pick(a);
-                }}
-                onMouseEnter={() => setHighlight(idx)}
+          {results.map((s, idx) => {
+            const key = suggestionKey(s);
+            const selected = key.toLowerCase() === value.toLowerCase();
+            return (
+              <li
+                key={key}
+                id={`${listId}-${key}`}
+                role="option"
+                aria-selected={selected}
               >
-                <span className="font-medium text-[var(--sea-deep)]">
-                  {a.city}{" "}
-                  <span className="text-[var(--accent)]">({a.iata})</span>
-                </span>
-                <span className="text-xs text-[var(--muted)]">
-                  {a.airport} · {a.country}
-                </span>
-              </button>
-            </li>
-          ))}
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  className={`flex w-full flex-col px-3 py-2 text-left hover:bg-[var(--foam)] ${
+                    idx === highlight || selected ? "bg-[var(--foam)]" : ""
+                  }`}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    pick(s);
+                  }}
+                  onMouseEnter={() => setHighlight(idx)}
+                >
+                  {s.kind === "city" ? (
+                    <>
+                      <span className="font-medium text-[var(--sea-deep)]">
+                        {s.group.city}{" "}
+                        <span className="text-[var(--accent)]">
+                          (tüm havalimanları)
+                        </span>
+                      </span>
+                      <span className="text-xs text-[var(--muted)]">
+                        {s.group.airports.map((a) => a.iata).join(" · ")} ·{" "}
+                        {s.group.country}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="font-medium text-[var(--sea-deep)]">
+                        {s.airport.city}{" "}
+                        <span className="text-[var(--accent)]">
+                          ({s.airport.iata})
+                        </span>
+                      </span>
+                      <span className="text-xs text-[var(--muted)]">
+                        {s.airport.airport} · {s.airport.country}
+                      </span>
+                    </>
+                  )}
+                </button>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>
