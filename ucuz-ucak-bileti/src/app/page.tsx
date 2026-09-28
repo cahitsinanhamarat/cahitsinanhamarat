@@ -16,6 +16,7 @@ export default function HomePage() {
     startDate: "2026-04-01",
     endDate: "2026-06-01",
     stayDays: [...DEFAULT_STAY_DAYS],
+    nonstopOnly: false,
   });
   const [result, setResult] = useState<SearchResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -68,20 +69,19 @@ export default function HomePage() {
             Ucuz Uçak Bileti
           </h1>
           <p className="anim-rise max-w-xl text-base text-[var(--muted)] sm:text-lg">
-            Tarih aralığı ve 2–21 gün konaklamaya uyan tüm gidiş-dönüş
-            kombinasyonlarını üretin; Skyscanner öncelikli 19 kaynakta tek
-            tıkla karşılaştırın. Ücretli API yok — gerçek fiyat kaynak
-            sitesinde.
+            Tarih aralığı ve 2–21 gün konaklamaya uyan gidiş-dönüşleri üretin;
+            Skyscanner #1 + Türkiye’ye uçan havayolları ve OTAlarda karşılaştırın.
+            Ücretli API zorunlu değil — önizleme fiyat + deep-link.
           </p>
 
           <div className="anim-rise w-full max-w-3xl rounded-xl border border-[var(--line)] bg-white/55 px-4 py-3 text-sm text-[var(--muted)] backdrop-blur">
             <p className="font-semibold text-[var(--sea-deep)]">
-              Ücretsiz yol: deep-link çoklu kaynak karşılaştırma
+              Ücretsiz yol: deep-link + best-effort fiyat önizleme
             </p>
             <p className="mt-1 text-xs">
-              Sahte demo fiyat yok. Her tarih çifti için Skyscanner (#1) +
-              Enuygun, Kayak, Google Flights ve diğer onaylı sitelere hazır
-              arama linkleri.
+              Sahte demo fiyat yok. Skyscanner öncelikli; Türkiye çıkışlı
+              havayolları dahil. Aktarmasız filtresi desteklenen linklere
+              stops=0 / preferdirects ekler.
             </p>
           </div>
 

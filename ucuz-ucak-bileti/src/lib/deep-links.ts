@@ -1,94 +1,216 @@
 import type { DatePair } from "./dates";
-import { APPROVED_SOURCES } from "./sources";
-import type { FlightOffer, ResultRow, SourceLink, TripOption } from "./types";
+import {
+  AIRLINE_BOOK_TEMPLATES,
+  APPROVED_SOURCES,
+  type SourceDef,
+} from "./sources";
+import type {
+  FlightOffer,
+  ResultRow,
+  SourceLink,
+  StopsKind,
+  TripOption,
+} from "./types";
 
 export type DeepLinkParams = {
   origin: string;
   destination: string;
   pair: DatePair;
+  nonstopOnly?: boolean;
 };
 
 function ymdCompact(ymd: string): string {
   return ymd.replace(/-/g, "");
 }
 
-/** Kaynak başına gidiş-dönüş arama deep-link’i (ücretsiz yol — scraping yok). */
+function withNonstopParam(url: string, nonstopOnly: boolean, style: "stops0" | "direct" | "query"): string {
+  if (!nonstopOnly) return url;
+  if (style === "stops0") {
+    return url.includes("?") ? `${url}&stops=0` : `${url}?stops=0`;
+  }
+  if (style === "direct") {
+    return url.includes("?")
+      ? `${url}&preferdirects=true&stops=0`
+      : `${url}?preferdirects=true&stops=0`;
+  }
+  return url.includes("?") ? `${url}&direct=true` : `${url}?direct=true`;
+}
+
+/** Kaynak başına gidiş-dönüş arama deep-link’i. */
 export function buildDeepLink(
   sourceId: string,
   p: DeepLinkParams
 ): string {
-  const { origin: o, destination: d, pair } = p;
+  const { origin: o, destination: d, pair, nonstopOnly = false } = p;
   const dep = pair.departure;
   const ret = pair.returnDate;
   const depC = ymdCompact(dep);
   const retC = ymdCompact(ret);
+  const ns = nonstopOnly;
+
+  // Airline sources: airline-xx
+  if (sourceId.startsWith("airline-")) {
+    const iata = sourceId.replace("airline-", "").toUpperCase();
+    const tpl = AIRLINE_BOOK_TEMPLATES[iata];
+    if (tpl) {
+      let url = tpl
+        .replaceAll("{o}", o)
+        .replaceAll("{d}", d)
+        .replaceAll("{dep}", dep)
+        .replaceAll("{ret}", ret);
+      return withNonstopParam(url, ns, "direct");
+    }
+    // Fallback: Google Flights filtered by airline + nonstop intent
+    const q = ns
+      ? `flights ${o} to ${d} ${dep} ${ret} ${iata} nonstop`
+      : `flights ${o} to ${d} ${dep} ${ret} ${iata}`;
+    return `https://www.google.com/travel/flights?hl=tr&curr=TRY&q=${encodeURIComponent(q)}`;
+  }
 
   switch (sourceId) {
     case "skyscanner":
-      return `https://www.skyscanner.com.tr/transport/flights/${o.toLowerCase()}/${d.toLowerCase()}/${depC}/${retC}/?adults=1&cabinclass=economy&rtn=1&preferdirects=false`;
+      return withNonstopParam(
+        `https://www.skyscanner.com.tr/transport/flights/${o.toLowerCase()}/${d.toLowerCase()}/${depC}/${retC}/?adults=1&cabinclass=economy&rtn=1&preferdirects=${ns ? "true" : "false"}`,
+        ns,
+        "stops0"
+      );
     case "enuygun":
-      return `https://www.enuygun.com/ucak-bileti/arama/${o}-${d}/?gidis=${dep}&donus=${ret}&yetiskin=1&sinif=ekonomi`;
+      return withNonstopParam(
+        `https://www.enuygun.com/ucak-bileti/arama/${o}-${d}/?gidis=${dep}&donus=${ret}&yetiskin=1&sinif=ekonomi${ns ? "&aktarma=direkt" : ""}`,
+        ns,
+        "stops0"
+      );
     case "kayak":
-      return `https://www.kayak.com.tr/flights/${o}-${d}/${dep}/${ret}?sort=bestflight_a`;
-    case "google-flights":
-      return `https://www.google.com/travel/flights?hl=tr&curr=TRY#flt=${o}.${d}.${dep}*${d}.${o}.${ret}`;
+      return withNonstopParam(
+        `https://www.kayak.com.tr/flights/${o}-${d}/${dep}/${ret}?sort=bestflight_a${ns ? "&fs=stops=0" : ""}`,
+        false,
+        "stops0"
+      );
+    case "google-flights": {
+      // tfs-style hash; append nonstop via query when requested
+      const base = `https://www.google.com/travel/flights?hl=tr&curr=TRY#flt=${o}.${d}.${dep}*${d}.${o}.${ret}`;
+      return ns ? `${base};tt:o` : base; // tt:o ≈ nonstop intent in GF hash
+    }
     case "turna":
-      return `https://www.turna.com/ucak-bileti/${o.toLowerCase()}-${d.toLowerCase()}?departureDate=${dep}&returnDate=${ret}&adult=1`;
+      return withNonstopParam(
+        `https://www.turna.com/ucak-bileti/${o.toLowerCase()}-${d.toLowerCase()}?departureDate=${dep}&returnDate=${ret}&adult=1${ns ? "&direct=true" : ""}`,
+        false,
+        "direct"
+      );
     case "ucuzabilet":
-      return `https://www.ucuzabilet.com/ucak-bileti/${o}-${d}?gidistar=${dep}&donustar=${ret}&yetiskin=1`;
+      return withNonstopParam(
+        `https://www.ucuzabilet.com/ucak-bileti/${o}-${d}?gidistar=${dep}&donustar=${ret}&yetiskin=1`,
+        ns,
+        "direct"
+      );
     case "biletall":
-      return `https://www.biletall.com/ucak-bileti/${o}-${d}?gidis=${dep}&donus=${ret}&yetiskin=1`;
+      return withNonstopParam(
+        `https://www.biletall.com/ucak-bileti/${o}-${d}?gidis=${dep}&donus=${ret}&yetiskin=1`,
+        ns,
+        "direct"
+      );
     case "obilet":
-      return `https://www.obilet.com/ucak-bileti?nereden=${o}&nereye=${d}&gidis=${dep}&donus=${ret}&yetiskin=1`;
+      return withNonstopParam(
+        `https://www.obilet.com/ucak-bileti?nereden=${o}&nereye=${d}&gidis=${dep}&donus=${ret}&yetiskin=1`,
+        ns,
+        "direct"
+      );
     case "kiwi":
-      return `https://www.kiwi.com/tr/search/results/${o}-${d}/${dep}/${ret}?adults=1&currency=try`;
+      return withNonstopParam(
+        `https://www.kiwi.com/tr/search/results/${o}-${d}/${dep}/${ret}?adults=1&currency=try${ns ? "&stopNumber=0" : ""}`,
+        false,
+        "stops0"
+      );
     case "momondo":
-      return `https://www.momondo.com/flight-search/${o}-${d}/${dep}/${ret}?sort=bestflight_a`;
-    case "thy":
-      return `https://www.turkishairlines.com/tr-int/ucak-bileti/${o.toLowerCase()}-${d.toLowerCase()}/?outbound=${dep}&inbound=${ret}&adult=1&cabin=ECONOMY`;
-    case "pegasus":
-      return `https://www.flypgs.com/ucak-bileti?departurePort=${o}&arrivalPort=${d}&departureDate=${dep}&returnDate=${ret}&adultCount=1`;
-    case "ajet":
-      return `https://www.ajet.com/tr/ucak-bileti?origin=${o}&destination=${d}&departureDate=${dep}&returnDate=${ret}&adult=1`;
-    case "sunexpress":
-      return `https://www.sunexpress.com/tr/ucak-bileti/?origin=${o}&destination=${d}&outbound=${dep}&inbound=${ret}&adults=1`;
-    case "corendon":
-      return `https://www.corendonairlines.com/tr/ucak-bileti?from=${o}&to=${d}&departure=${dep}&return=${ret}&adults=1`;
+      return withNonstopParam(
+        `https://www.momondo.com/flight-search/${o}-${d}/${dep}/${ret}?sort=bestflight_a${ns ? "&fs=stops=0" : ""}`,
+        false,
+        "stops0"
+      );
     case "expedia":
-      return `https://www.expedia.com/Flights-Search?trip=roundtrip&leg1=from:${o},to:${d},departure:${dep}TANYT&leg2=from:${d},to:${o},departure:${ret}TANYT&passengers=adults:1&mode=search`;
+      return withNonstopParam(
+        `https://www.expedia.com/Flights-Search?trip=roundtrip&leg1=from:${o},to:${d},departure:${dep}TANYT&leg2=from:${d},to:${o},departure:${ret}TANYT&passengers=adults:1&mode=search${ns ? "&maxNumStopsForEachDirection=0" : ""}`,
+        false,
+        "stops0"
+      );
     case "booking":
-      return `https://www.booking.com/flights/index.html?type=ROUNDTRIP&from=${o}&to=${d}&depart=${dep}&return=${ret}&adults=1`;
+      return withNonstopParam(
+        `https://www.booking.com/flights/index.html?type=ROUNDTRIP&from=${o}&to=${d}&depart=${dep}&return=${ret}&adults=1${ns ? "&stops=0" : ""}`,
+        false,
+        "stops0"
+      );
     case "trip":
-      return `https://www.trip.com/flights/${o.toLowerCase()}-to-${d.toLowerCase()}/roundtrip-${o.toLowerCase()}-${d.toLowerCase()}/?dcity=${o}&acity=${d}&ddate=${dep}&rdate=${ret}&adult=1`;
+      return withNonstopParam(
+        `https://www.trip.com/flights/${o.toLowerCase()}-to-${d.toLowerCase()}/roundtrip-${o.toLowerCase()}-${d.toLowerCase()}/?dcity=${o}&acity=${d}&ddate=${dep}&rdate=${ret}&adult=1${ns ? "&nonstop=1" : ""}`,
+        false,
+        "stops0"
+      );
     case "edreams":
-      return `https://www.edreams.com/travel/#results/type=R;from=${o};to=${d};dep=${dep};ret=${ret};adults=1`;
+      return withNonstopParam(
+        `https://www.edreams.com/travel/#results/type=R;from=${o};to=${d};dep=${dep};ret=${ret};adults=1${ns ? ";direct=true" : ""}`,
+        false,
+        "stops0"
+      );
     default:
-      return `https://www.google.com/search?q=${encodeURIComponent(`${o} ${d} uçuş ${dep} ${ret}`)}`;
+      return `https://www.google.com/search?q=${encodeURIComponent(
+        `${o} ${d} uçuş ${dep} ${ret}${ns ? " aktarmasız" : ""}`
+      )}`;
   }
 }
 
-/** Bir tarih çifti için 19 kaynak linki (Skyscanner #1). */
+export function stopsLabel(
+  stops: StopsKind,
+  stopCount: number | null
+): string {
+  if (stops === "nonstop") return "Aktarmasız";
+  if (stops === "connecting") {
+    return stopCount != null ? `Aktarmalı (${stopCount})` : "Aktarmalı";
+  }
+  // Ücretsiz deep-link yolunda kesin stop bilinmez; bilinmiyor son çare değil —
+  // arama filtresizken her iki seçenek de mümkün.
+  return "Aktarmasız / aktarmalı";
+}
+
+/**
+ * Ücretsiz yolda stop bilgisi:
+ * - nonstopOnly araması → linkler aktarmasız niyeti taşır → "nonstop" etiketle
+ * - aksi halde bilinmiyor (kaynak sitesinde kesinleşir)
+ */
+export function expectedStops(nonstopOnly: boolean): {
+  stops: StopsKind;
+  stopCount: number | null;
+} {
+  if (nonstopOnly) return { stops: "nonstop", stopCount: 0 };
+  return { stops: "unknown", stopCount: null };
+}
+
 export function buildSourceLinksForPair(
   origin: string,
   destination: string,
-  pair: DatePair
+  pair: DatePair,
+  nonstopOnly = false
 ): SourceLink[] {
   return APPROVED_SOURCES.map((src) => ({
     id: src.id,
     name: src.name,
     priority: src.priority,
-    url: buildDeepLink(src.id, { origin, destination, pair }),
+    url: buildDeepLink(src.id, { origin, destination, pair, nonstopOnly }),
   }));
 }
 
-/** Ücretsiz yol: her tarih çifti = karşılaştırılabilir trip option. */
 export function buildTripOptions(
   origin: string,
   destination: string,
-  pairs: DatePair[]
+  pairs: DatePair[],
+  nonstopOnly = false
 ): TripOption[] {
   return pairs.map((pair) => {
-    const links = buildSourceLinksForPair(origin, destination, pair);
+    const links = buildSourceLinksForPair(
+      origin,
+      destination,
+      pair,
+      nonstopOnly
+    );
     return {
       id: `trip-${pair.departure}-${pair.returnDate}-${pair.stayDays}`,
       departure: pair.departure,
@@ -102,18 +224,17 @@ export function buildTripOptions(
   });
 }
 
-/**
- * Tablo satırları: her (kaynak × tarih çifti) kendi gidiş/dönüş tarihini taşır.
- * Fiyat üretilmez — ücretsiz yolda null (UI: “Sitede gör”).
- */
 export function buildResultRows(
   origin: string,
   destination: string,
-  pairs: DatePair[]
+  pairs: DatePair[],
+  nonstopOnly = false,
+  sources: SourceDef[] = APPROVED_SOURCES
 ): ResultRow[] {
+  const { stops, stopCount } = expectedStops(nonstopOnly);
   const rows: ResultRow[] = [];
   for (const pair of pairs) {
-    for (const src of APPROVED_SOURCES) {
+    for (const src of sources) {
       rows.push({
         id: `row-${src.id}-${pair.departure}-${pair.returnDate}-${pair.stayDays}`,
         sourceId: src.id,
@@ -124,21 +245,29 @@ export function buildResultRows(
         stayDays: pair.stayDays,
         price: null,
         currency: "TRY",
-        purchaseUrl: buildDeepLink(src.id, { origin, destination, pair }),
+        purchaseUrl: buildDeepLink(src.id, {
+          origin,
+          destination,
+          pair,
+          nonstopOnly,
+        }),
         mode: "link-out",
+        stops,
+        stopCount,
       });
     }
   }
   return rows;
 }
 
-/** Geriye dönük: tek çift için link-out FlightOffer listesi. */
 export function buildLinkOutOffers(
   origin: string,
   destination: string,
   pair: DatePair,
-  mode: "link-out" | "demo" = "link-out"
+  mode: "link-out" | "demo" = "link-out",
+  nonstopOnly = false
 ): FlightOffer[] {
+  const { stops, stopCount } = expectedStops(nonstopOnly);
   return APPROVED_SOURCES.map((src) => ({
     id: `link-${src.id}-${pair.departure}-${pair.stayDays}`,
     source: src.name,
@@ -159,7 +288,14 @@ export function buildLinkOutOffers(
       to: origin,
     },
     stayDays: pair.stayDays,
-    purchaseUrl: buildDeepLink(src.id, { origin, destination, pair }),
+    purchaseUrl: buildDeepLink(src.id, {
+      origin,
+      destination,
+      pair,
+      nonstopOnly,
+    }),
     mode,
+    stops,
+    stopCount,
   }));
 }

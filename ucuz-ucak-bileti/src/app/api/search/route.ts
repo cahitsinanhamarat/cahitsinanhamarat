@@ -6,6 +6,8 @@ import type { SearchRequest } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+/** Fiyat önizleme (puppeteer) için süre */
+export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   try {
@@ -41,6 +43,7 @@ export async function POST(req: NextRequest) {
       startDate,
       endDate,
       stayDays,
+      nonstopOnly: Boolean(body.nonstopOnly),
     });
 
     return NextResponse.json({

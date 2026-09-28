@@ -94,6 +94,10 @@ export async function searchKiwi(
             purchaseUrl:
               item.deep_link ||
               buildDeepLink("kiwi", { origin, destination, pair }),
+            stops: "unknown" as const,
+
+            stopCount: null,
+
             mode: "live",
           });
         }

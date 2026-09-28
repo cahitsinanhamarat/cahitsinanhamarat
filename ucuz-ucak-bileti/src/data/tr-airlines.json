@@ -1,0 +1,742 @@
+{
+  "airlines": [
+    {
+      "iata": "A3",
+      "name": "Aegean Airlines",
+      "country": "Greece",
+      "hasTemplate": true
+    },
+    {
+      "iata": "EI",
+      "name": "Aer Lingus",
+      "country": "Ireland",
+      "hasTemplate": false
+    },
+    {
+      "iata": "SU",
+      "name": "Aeroflot",
+      "country": "Russia",
+      "hasTemplate": true
+    },
+    {
+      "iata": "8U",
+      "name": "Afriqiyah Airways",
+      "country": "Libya",
+      "hasTemplate": false
+    },
+    {
+      "iata": "AH",
+      "name": "Air Algérie",
+      "country": "Algeria",
+      "hasTemplate": true
+    },
+    {
+      "iata": "G9",
+      "name": "Air Arabia",
+      "country": "United Arab Emirates",
+      "hasTemplate": true
+    },
+    {
+      "iata": "3O",
+      "name": "Air Arabia Maroc",
+      "country": "Morocco",
+      "hasTemplate": false
+    },
+    {
+      "iata": "KC",
+      "name": "Air Astana",
+      "country": "Kazakhstan",
+      "hasTemplate": true
+    },
+    {
+      "iata": "SM",
+      "name": "Air Cairo",
+      "country": "Egypt",
+      "hasTemplate": true
+    },
+    {
+      "iata": "AC",
+      "name": "Air Canada",
+      "country": "Canada",
+      "hasTemplate": true
+    },
+    {
+      "iata": "CA",
+      "name": "Air China",
+      "country": "China",
+      "hasTemplate": true
+    },
+    {
+      "iata": "UX",
+      "name": "Air Europa",
+      "country": "Spain",
+      "hasTemplate": false
+    },
+    {
+      "iata": "AF",
+      "name": "Air France",
+      "country": "France",
+      "hasTemplate": true
+    },
+    {
+      "iata": "AI",
+      "name": "Air India Limited",
+      "country": "India",
+      "hasTemplate": true
+    },
+    {
+      "iata": "KM",
+      "name": "Air Malta",
+      "country": "Malta",
+      "hasTemplate": false
+    },
+    {
+      "iata": "9U",
+      "name": "Air Moldova",
+      "country": "Moldova",
+      "hasTemplate": false
+    },
+    {
+      "iata": "JU",
+      "name": "Air Serbia",
+      "country": "Serbia",
+      "hasTemplate": true
+    },
+    {
+      "iata": "BT",
+      "name": "airBaltic",
+      "country": "Latvia",
+      "hasTemplate": true
+    },
+    {
+      "iata": "VF",
+      "name": "AJet",
+      "country": "Turkey",
+      "hasTemplate": true
+    },
+    {
+      "iata": "AA",
+      "name": "American Airlines",
+      "country": "United States",
+      "hasTemplate": true
+    },
+    {
+      "iata": "NH",
+      "name": "ANA",
+      "country": "Japan",
+      "hasTemplate": true
+    },
+    {
+      "iata": "FG",
+      "name": "Ariana Afghan Airlines",
+      "country": "Afghanistan",
+      "hasTemplate": false
+    },
+    {
+      "iata": "OZ",
+      "name": "Asiana Airlines",
+      "country": "South Korea",
+      "hasTemplate": true
+    },
+    {
+      "iata": "OS",
+      "name": "Austrian Airlines",
+      "country": "Austria",
+      "hasTemplate": true
+    },
+    {
+      "iata": "J2",
+      "name": "Azerbaijan Airlines",
+      "country": "Azerbaijan",
+      "hasTemplate": true
+    },
+    {
+      "iata": "ZF",
+      "name": "Azur Air",
+      "country": "Russia",
+      "hasTemplate": false
+    },
+    {
+      "iata": "B2",
+      "name": "Belavia",
+      "country": "Belarus",
+      "hasTemplate": true
+    },
+    {
+      "iata": "BG",
+      "name": "Biman Bangladesh",
+      "country": "Bangladesh",
+      "hasTemplate": false
+    },
+    {
+      "iata": "BA",
+      "name": "British Airways",
+      "country": "United Kingdom",
+      "hasTemplate": true
+    },
+    {
+      "iata": "SN",
+      "name": "Brussels Airlines",
+      "country": "Belgium",
+      "hasTemplate": false
+    },
+    {
+      "iata": "C6",
+      "name": "Canaryfly",
+      "country": "Spain",
+      "hasTemplate": false
+    },
+    {
+      "iata": "CX",
+      "name": "Cathay Pacific",
+      "country": "Hong Kong",
+      "hasTemplate": true
+    },
+    {
+      "iata": "MU",
+      "name": "China Eastern",
+      "country": "China",
+      "hasTemplate": true
+    },
+    {
+      "iata": "CZ",
+      "name": "China Southern",
+      "country": "China",
+      "hasTemplate": true
+    },
+    {
+      "iata": "DE",
+      "name": "Condor Flugdienst",
+      "country": "Germany",
+      "hasTemplate": true
+    },
+    {
+      "iata": "XC",
+      "name": "Corendon Airlines Europe",
+      "country": "Malta",
+      "hasTemplate": true
+    },
+    {
+      "iata": "OU",
+      "name": "Croatia Airlines",
+      "country": "Croatia",
+      "hasTemplate": false
+    },
+    {
+      "iata": "OK",
+      "name": "Czech Airlines",
+      "country": "Czech Republic",
+      "hasTemplate": true
+    },
+    {
+      "iata": "DL",
+      "name": "Delta Air Lines",
+      "country": "United States",
+      "hasTemplate": true
+    },
+    {
+      "iata": "U2",
+      "name": "easyJet",
+      "country": "United Kingdom",
+      "hasTemplate": true
+    },
+    {
+      "iata": "MS",
+      "name": "Egyptair",
+      "country": "Egypt",
+      "hasTemplate": true
+    },
+    {
+      "iata": "LY",
+      "name": "EL AL",
+      "country": "Israel",
+      "hasTemplate": false
+    },
+    {
+      "iata": "EK",
+      "name": "Emirates",
+      "country": "United Arab Emirates",
+      "hasTemplate": true
+    },
+    {
+      "iata": "ET",
+      "name": "Ethiopian Airlines",
+      "country": "Ethiopia",
+      "hasTemplate": true
+    },
+    {
+      "iata": "EY",
+      "name": "Etihad Airways",
+      "country": "United Arab Emirates",
+      "hasTemplate": true
+    },
+    {
+      "iata": "EW",
+      "name": "Eurowings",
+      "country": "Germany",
+      "hasTemplate": true
+    },
+    {
+      "iata": "AY",
+      "name": "Finnair",
+      "country": "Finland",
+      "hasTemplate": true
+    },
+    {
+      "iata": "FZ",
+      "name": "flydubai",
+      "country": "United Arab Emirates",
+      "hasTemplate": true
+    },
+    {
+      "iata": "XY",
+      "name": "flynas",
+      "country": "Saudi Arabia",
+      "hasTemplate": true
+    },
+    {
+      "iata": "5F",
+      "name": "FlyOne",
+      "country": "Moldova",
+      "hasTemplate": false
+    },
+    {
+      "iata": "GA",
+      "name": "Garuda Indonesia",
+      "country": "Indonesia",
+      "hasTemplate": false
+    },
+    {
+      "iata": "GF",
+      "name": "Gulf Air Bahrain",
+      "country": "Bahrain",
+      "hasTemplate": true
+    },
+    {
+      "iata": "IB",
+      "name": "Iberia",
+      "country": "Spain",
+      "hasTemplate": true
+    },
+    {
+      "iata": "IR",
+      "name": "Iran Air",
+      "country": "Iran",
+      "hasTemplate": true
+    },
+    {
+      "iata": "EP",
+      "name": "Iran Aseman Airlines",
+      "country": "Iran",
+      "hasTemplate": false
+    },
+    {
+      "iata": "JL",
+      "name": "Japan Airlines",
+      "country": "Japan",
+      "hasTemplate": false
+    },
+    {
+      "iata": "J9",
+      "name": "Jazeera Airways",
+      "country": "Kuwait",
+      "hasTemplate": false
+    },
+    {
+      "iata": "LS",
+      "name": "Jet2.com",
+      "country": "United Kingdom",
+      "hasTemplate": true
+    },
+    {
+      "iata": "KQ",
+      "name": "Kenya Airways",
+      "country": "Kenya",
+      "hasTemplate": false
+    },
+    {
+      "iata": "KL",
+      "name": "KLM",
+      "country": "Netherlands",
+      "hasTemplate": true
+    },
+    {
+      "iata": "KE",
+      "name": "Korean Air",
+      "country": "South Korea",
+      "hasTemplate": true
+    },
+    {
+      "iata": "KU",
+      "name": "Kuwait Airways",
+      "country": "Kuwait",
+      "hasTemplate": true
+    },
+    {
+      "iata": "LN",
+      "name": "Libyan Arab Airlines",
+      "country": "Libya",
+      "hasTemplate": false
+    },
+    {
+      "iata": "LO",
+      "name": "LOT Polish Airlines",
+      "country": "Poland",
+      "hasTemplate": true
+    },
+    {
+      "iata": "LH",
+      "name": "Lufthansa",
+      "country": "Germany",
+      "hasTemplate": true
+    },
+    {
+      "iata": "LG",
+      "name": "Luxair",
+      "country": "Luxembourg",
+      "hasTemplate": false
+    },
+    {
+      "iata": "W5",
+      "name": "Mahan Air",
+      "country": "Iran",
+      "hasTemplate": false
+    },
+    {
+      "iata": "MH",
+      "name": "Malaysia Airlines",
+      "country": "Malaysia",
+      "hasTemplate": false
+    },
+    {
+      "iata": "ME",
+      "name": "Middle East Airlines",
+      "country": "Lebanon",
+      "hasTemplate": true
+    },
+    {
+      "iata": "NE",
+      "name": "Nesma Airlines",
+      "country": "Egypt",
+      "hasTemplate": false
+    },
+    {
+      "iata": "NP",
+      "name": "Nile Air",
+      "country": "Egypt",
+      "hasTemplate": true
+    },
+    {
+      "iata": "VQ",
+      "name": "Norse Atlantic Airways",
+      "country": "Norway",
+      "hasTemplate": false
+    },
+    {
+      "iata": "DY",
+      "name": "Norwegian",
+      "country": "Norway",
+      "hasTemplate": false
+    },
+    {
+      "iata": "OA",
+      "name": "Olympic Air",
+      "country": "Greece",
+      "hasTemplate": false
+    },
+    {
+      "iata": "WY",
+      "name": "Oman Air",
+      "country": "Oman",
+      "hasTemplate": false
+    },
+    {
+      "iata": "EO",
+      "name": "Pegas Fly",
+      "country": "Russia",
+      "hasTemplate": false
+    },
+    {
+      "iata": "PC",
+      "name": "Pegasus Airlines",
+      "country": "Turkey",
+      "hasTemplate": true
+    },
+    {
+      "iata": "PK",
+      "name": "PIA",
+      "country": "Pakistan",
+      "hasTemplate": true
+    },
+    {
+      "iata": "QF",
+      "name": "Qantas",
+      "country": "Australia",
+      "hasTemplate": false
+    },
+    {
+      "iata": "QR",
+      "name": "Qatar Airways",
+      "country": "Qatar",
+      "hasTemplate": true
+    },
+    {
+      "iata": "AT",
+      "name": "Royal Air Maroc",
+      "country": "Morocco",
+      "hasTemplate": true
+    },
+    {
+      "iata": "RJ",
+      "name": "Royal Jordanian",
+      "country": "Jordan",
+      "hasTemplate": true
+    },
+    {
+      "iata": "WB",
+      "name": "Rwandair Express",
+      "country": "Rwanda",
+      "hasTemplate": false
+    },
+    {
+      "iata": "FR",
+      "name": "Ryanair",
+      "country": "Ireland",
+      "hasTemplate": true
+    },
+    {
+      "iata": "SK",
+      "name": "SAS",
+      "country": "Sweden",
+      "hasTemplate": true
+    },
+    {
+      "iata": "SV",
+      "name": "Saudia",
+      "country": "Saudi Arabia",
+      "hasTemplate": true
+    },
+    {
+      "iata": "SQ",
+      "name": "Singapore Airlines",
+      "country": "Singapore",
+      "hasTemplate": true
+    },
+    {
+      "iata": "GQ",
+      "name": "Sky Express",
+      "country": "Greece",
+      "hasTemplate": false
+    },
+    {
+      "iata": "SZ",
+      "name": "Somon Air",
+      "country": "Tajikistan",
+      "hasTemplate": false
+    },
+    {
+      "iata": "SA",
+      "name": "South African Airways",
+      "country": "South Africa",
+      "hasTemplate": false
+    },
+    {
+      "iata": "UL",
+      "name": "SriLankan Airlines",
+      "country": "Sri Lanka",
+      "hasTemplate": false
+    },
+    {
+      "iata": "XQ",
+      "name": "SunExpress",
+      "country": "Turkey",
+      "hasTemplate": true
+    },
+    {
+      "iata": "LX",
+      "name": "SWISS",
+      "country": "Switzerland",
+      "hasTemplate": true
+    },
+    {
+      "iata": "7J",
+      "name": "Tajik Air",
+      "country": "Tajikistan",
+      "hasTemplate": false
+    },
+    {
+      "iata": "TP",
+      "name": "TAP Air Portugal",
+      "country": "Portugal",
+      "hasTemplate": true
+    },
+    {
+      "iata": "RO",
+      "name": "TAROM",
+      "country": "Romania",
+      "hasTemplate": true
+    },
+    {
+      "iata": "TG",
+      "name": "Thai Airways",
+      "country": "Thailand",
+      "hasTemplate": true
+    },
+    {
+      "iata": "TO",
+      "name": "Transavia France",
+      "country": "France",
+      "hasTemplate": true
+    },
+    {
+      "iata": "HV",
+      "name": "Transavia Holland",
+      "country": "Netherlands",
+      "hasTemplate": true
+    },
+    {
+      "iata": "QS",
+      "name": "Travel Service",
+      "country": "Czech Republic",
+      "hasTemplate": false
+    },
+    {
+      "iata": "X3",
+      "name": "TUIfly",
+      "country": "Germany",
+      "hasTemplate": true
+    },
+    {
+      "iata": "TU",
+      "name": "Tunisair",
+      "country": "Tunisia",
+      "hasTemplate": false
+    },
+    {
+      "iata": "TK",
+      "name": "Turkish Airlines",
+      "country": "Turkey",
+      "hasTemplate": true
+    },
+    {
+      "iata": "T5",
+      "name": "Turkmenistan Airlines",
+      "country": "Turkmenistan",
+      "hasTemplate": false
+    },
+    {
+      "iata": "PS",
+      "name": "Ukraine International Airlines",
+      "country": "Ukraine",
+      "hasTemplate": true
+    },
+    {
+      "iata": "UA",
+      "name": "United Airlines",
+      "country": "United States",
+      "hasTemplate": true
+    },
+    {
+      "iata": "HY",
+      "name": "Uzbekistan Airways",
+      "country": "Uzbekistan",
+      "hasTemplate": true
+    },
+    {
+      "iata": "VY",
+      "name": "Vueling",
+      "country": "Spain",
+      "hasTemplate": true
+    },
+    {
+      "iata": "W6",
+      "name": "Wizz Air",
+      "country": "Hungary",
+      "hasTemplate": true
+    },
+    {
+      "iata": "W4",
+      "name": "Wizz Air Malta",
+      "country": "Malta",
+      "hasTemplate": false
+    },
+    {
+      "iata": "Z6",
+      "name": "ZABAIKAL AIRLINES",
+      "country": "Russia",
+      "hasTemplate": false
+    }
+  ],
+  "bookTemplates": {
+    "TK": "https://www.turkishairlines.com/tr-int/ucak-bileti/{o}-{d}/?outbound={dep}&inbound={ret}&adult=1&cabin=ECONOMY",
+    "PC": "https://www.flypgs.com/ucak-bileti?departurePort={o}&arrivalPort={d}&departureDate={dep}&returnDate={ret}&adultCount=1",
+    "VF": "https://www.ajet.com/tr/ucak-bileti?origin={o}&destination={d}&departureDate={dep}&returnDate={ret}&adult=1",
+    "XQ": "https://www.sunexpress.com/tr/ucak-bileti/?origin={o}&destination={d}&outbound={dep}&inbound={ret}&adults=1",
+    "XC": "https://www.corendonairlines.com/tr/ucak-bileti?from={o}&to={d}&departure={dep}&return={ret}&adults=1",
+    "QR": "https://www.qatarairways.com/tr-tr/homepage.html?from={o}&to={d}&departing={dep}&returning={ret}&passengers=1",
+    "EK": "https://www.emirates.com/tr/turkish/?JWE_FROM={o}&JWE_TO={d}&JWE_OUT={dep}&JWE_IN={ret}",
+    "EY": "https://www.etihad.com/en-tr/book/flights/?origin={o}&destination={d}&outbound={dep}&inbound={ret}&adults=1",
+    "FZ": "https://www.flydubai.com/en/book/flights?origin={o}&destination={d}&departure={dep}&return={ret}",
+    "G9": "https://www.airarabia.com/en/booking?origin={o}&destination={d}& depart={dep}",
+    "LH": "https://www.lufthansa.com/tr/tr/booking/flight-search?origin={o}&destination={d}&outboundDate={dep}&returnDate={ret}&adults=1",
+    "LX": "https://www.swiss.com/tr/tr/book-and-manage/book-flights?origin={o}&destination={d}&outbound={dep}&inbound={ret}",
+    "OS": "https://www.austrian.com/tr/tr/book-flights?origin={o}&destination={d}&outbound={dep}&inbound={ret}",
+    "AF": "https://wwws.airfrance.com.tr/search?origin={o}&destination={d}&outbound={dep}&inbound={ret}",
+    "KL": "https://www.klm.com.tr/search/flights?origin={o}&destination={d}&outbound={dep}&inbound={ret}",
+    "BA": "https://www.britishairways.com/travel/book/public/tr_tr?origin={o}&destination={d}&outbound={dep}&inbound={ret}",
+    "U2": "https://www.easyjet.com/en/buy/flights?dep={o}&dest={d}&dd={dep}&rd={ret}",
+    "W6": "https://wizzair.com/en-gb#/booking/select-flight/{o}/{d}/{dep}/{ret}/1/0/0/null",
+    "FR": "https://www.ryanair.com/tr/tr/trip/flights/select?adults=1&dateOut={dep}&dateIn={ret}&originIata={o}&destinationIata={d}",
+    "A3": "https://en.aegeanair.com/plan/book-a-flight/?origin={o}&destination={d}&outbound={dep}&inbound={ret}",
+    "MS": "https://www.egyptair.com/en/book-and-manage/book-flights?from={o}&to={d}&depart={dep}&return={ret}",
+    "SV": "https://www.saudia.com/book/flights?origin={o}&destination={d}&outbound={dep}&inbound={ret}",
+    "LO": "https://www.lot.com/tr/en/book-flights?origin={o}&destination={d}&outbound={dep}&inbound={ret}",
+    "SK": "https://www.flysas.com/en-en/book/flights?origin={o}&destination={d}&outbound={dep}&inbound={ret}",
+    "AY": "https://www.finnair.com/tr-en/book-flights?origin={o}&destination={d}&outbound={dep}&inbound={ret}",
+    "IB": "https://www.iberia.com/tr/flights/?origin={o}&destination={d}&outbound={dep}&inbound={ret}",
+    "VY": "https://www.vueling.com/en/booking?o={o}&d={d}&date={dep}&return={ret}",
+    "TP": "https://www.flytap.com/en-tr/booking?origin={o}&destination={d}&outbound={dep}&inbound={ret}",
+    "JU": "https://www.airserbia.com/en/book-flights?origin={o}&destination={d}&outbound={dep}&inbound={ret}",
+    "BT": "https://www.airbaltic.com/en-TR/book-a-flight?origin={o}&destination={d}&outbound={dep}&inbound={ret}",
+    "EW": "https://www.eurowings.com/tr/booking/flights/flightsearch.html?origin={o}&destination={d}&outbound={dep}&inbound={ret}",
+    "LS": "https://www.jet2.com/en/flights?departure={o}&destination={d}&departDate={dep}&returnDate={ret}",
+    "DE": "https://www.condor.com/tr/flights?origin={o}&destination={d}&outbound={dep}&inbound={ret}",
+    "X3": "https://www.tui.com/flight/?origin={o}&destination={d}&outbound={dep}&inbound={ret}",
+    "HV": "https://www.transavia.com/en-EU/book-a-flight/flights/search/?origin={o}&destination={d}&outbound={dep}&inbound={ret}",
+    "TO": "https://www.transavia.com/en-EU/book-a-flight/flights/search/?origin={o}&destination={d}&outbound={dep}&inbound={ret}",
+    "J2": "https://www.azal.az/en/book-a-flight?origin={o}&destination={d}&outbound={dep}&inbound={ret}",
+    "KC": "https://airastana.com/global/en-us/Book/Book-Flights?origin={o}&destination={d}&outbound={dep}&inbound={ret}",
+    "HY": "https://www.uzairways.com/en/booking?origin={o}&destination={d}&outbound={dep}&inbound={ret}",
+    "RJ": "https://www.rj.com/en/book-and-manage/book-flights?origin={o}&destination={d}&outbound={dep}&inbound={ret}",
+    "ME": "https://www.mea.com.lb/english/booking?origin={o}&destination={d}&outbound={dep}&inbound={ret}",
+    "GF": "https://www.gulfair.com/book-a-flight?origin={o}&destination={d}&outbound={dep}&inbound={ret}",
+    "KU": "https://www.kuwaitairways.com/en/book?origin={o}&destination={d}&outbound={dep}&inbound={ret}",
+    "XY": "https://www.flynas.com/en/booking?origin={o}&destination={d}&outbound={dep}&inbound={ret}",
+    "AT": "https://www.royalairmaroc.com/us-en/booking?origin={o}&destination={d}&outbound={dep}&inbound={ret}",
+    "AH": "https://airalgerie.dz/en/booking?origin={o}&destination={d}&outbound={dep}&inbound={ret}",
+    "ET": "https://www.ethiopianairlines.com/tr/book/book-flights?origin={o}&destination={d}&outbound={dep}&inbound={ret}",
+    "SQ": "https://www.singaporeair.com/en_UK/tr/home#/book/bookflight?origin={o}&destination={d}",
+    "TG": "https://www.thaiairways.com/en-tr/booking?origin={o}&destination={d}&outbound={dep}&inbound={ret}",
+    "CX": "https://www.cathaypacific.com/cx/en_TR/book-a-trip/book-flights.html?origin={o}&destination={d}",
+    "CA": "https://www.airchina.com/tr/en/booking?origin={o}&destination={d}&outbound={dep}&inbound={ret}",
+    "CZ": "https://www.csair.com/en/booking?origin={o}&destination={d}&outbound={dep}&inbound={ret}",
+    "MU": "https://www.ceair.com/en/booking?origin={o}&destination={d}&outbound={dep}&inbound={ret}",
+    "KE": "https://www.koreanair.com/booking?origin={o}&destination={d}&outbound={dep}&inbound={ret}",
+    "OZ": "https://flyasiana.com/booking?origin={o}&destination={d}&outbound={dep}&inbound={ret}",
+    "NH": "https://www.ana.co.jp/en/tr/booking?origin={o}&destination={d}&outbound={dep}&inbound={ret}",
+    "AA": "https://www.aa.com/booking/find-flights?origin={o}&destination={d}&outbound={dep}&inbound={ret}",
+    "UA": "https://www.united.com/en/tr/book-flight?origin={o}&destination={d}&outbound={dep}&inbound={ret}",
+    "DL": "https://www.delta.com/flightsearch/book-a-flight?origin={o}&destination={d}&outbound={dep}&inbound={ret}",
+    "AC": "https://www.aircanada.com/tr/en/aco/home/book/flights.html?origin={o}&destination={d}",
+    "AI": "https://www.airindia.com/book?origin={o}&destination={d}&outbound={dep}&inbound={ret}",
+    "PK": "https://www.piac.com.pk/book?origin={o}&destination={d}&outbound={dep}&inbound={ret}",
+    "IR": "https://www.iranair.com/en/booking?origin={o}&destination={d}&outbound={dep}&inbound={ret}",
+    "SM": "https://www.aircairo.com/en/booking?origin={o}&destination={d}&outbound={dep}&inbound={ret}",
+    "NP": "https://www.nileair.com/booking?origin={o}&destination={d}&outbound={dep}&inbound={ret}",
+    "RO": "https://www.tarom.ro/en/flights?origin={o}&destination={d}&outbound={dep}&inbound={ret}",
+    "OK": "https://www.csa.cz/tr-en/booking?origin={o}&destination={d}&outbound={dep}&inbound={ret}",
+    "B2": "https://en.belavia.by/booking?origin={o}&destination={d}&outbound={dep}&inbound={ret}",
+    "PS": "https://www.flyuia.com/en/booking?origin={o}&destination={d}&outbound={dep}&inbound={ret}",
+    "SU": "https://www.aeroflot.ru/tr-en/booking?origin={o}&destination={d}&outbound={dep}&inbound={ret}"
+  }
+}

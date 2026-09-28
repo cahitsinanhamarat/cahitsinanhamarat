@@ -1,36 +1,55 @@
+/**
+ * Türkiye’ye/Türkiye’den uçan taşıyıcılar + OTA’lar.
+ * Skyscanner her zaman #1. Ücretli API yok — deep-link odaklı.
+ */
+import trAirlinesData from "@/data/tr-airlines.json";
 import type { OfferMode, SourceStatus } from "./types";
 
 export type SourceDef = {
   id: string;
   name: string;
   priority: number;
+  kind: "ota" | "airline" | "meta";
+  airlineIata?: string;
   canLive: boolean;
   noteLive: string;
   noteLinkOut: string;
 };
 
-/** Onaylı kaynak listesi — Skyscanner #1. */
-export const APPROVED_SOURCES: SourceDef[] = [
+type AirlineJson = {
+  airlines: { iata: string; name: string; country: string; hasTemplate: boolean }[];
+  bookTemplates: Record<string, string>;
+};
+
+const data = trAirlinesData as AirlineJson;
+
+export const AIRLINE_BOOK_TEMPLATES: Record<string, string> = data.bookTemplates;
+
+/** OTA / meta — Skyscanner birinci. */
+const OTA_SOURCES: SourceDef[] = [
   {
     id: "skyscanner",
     name: "Skyscanner",
     priority: 1,
+    kind: "ota",
     canLive: true,
-    noteLive: "RapidAPI Skyscanner anahtarı ile canlı fiyat",
+    noteLive: "Ücretsiz önizleme veya isteğe bağlı API",
     noteLinkOut: "skyscanner.com.tr deep-link",
   },
   {
     id: "enuygun",
     name: "Enuygun",
     priority: 2,
+    kind: "ota",
     canLive: false,
     noteLive: "",
-    noteLinkOut: "Resmi partner API yok — deep-link",
+    noteLinkOut: "enuygun.com deep-link",
   },
   {
     id: "kayak",
     name: "Kayak",
     priority: 3,
+    kind: "ota",
     canLive: false,
     noteLive: "",
     noteLinkOut: "kayak.com.tr deep-link",
@@ -39,14 +58,16 @@ export const APPROVED_SOURCES: SourceDef[] = [
     id: "google-flights",
     name: "Google Flights",
     priority: 4,
-    canLive: false,
-    noteLive: "",
+    kind: "ota",
+    canLive: true,
+    noteLive: "Ücretsiz genel web önizleme (best-effort)",
     noteLinkOut: "Google Flights deep-link",
   },
   {
     id: "turna",
     name: "Turna",
     priority: 5,
+    kind: "ota",
     canLive: false,
     noteLive: "",
     noteLinkOut: "turna.com deep-link",
@@ -55,6 +76,7 @@ export const APPROVED_SOURCES: SourceDef[] = [
     id: "ucuzabilet",
     name: "Ucuzabilet",
     priority: 6,
+    kind: "ota",
     canLive: false,
     noteLive: "",
     noteLinkOut: "ucuzabilet.com deep-link",
@@ -63,6 +85,7 @@ export const APPROVED_SOURCES: SourceDef[] = [
     id: "biletall",
     name: "Biletall",
     priority: 7,
+    kind: "ota",
     canLive: false,
     noteLive: "",
     noteLinkOut: "biletall.com deep-link",
@@ -71,6 +94,7 @@ export const APPROVED_SOURCES: SourceDef[] = [
     id: "obilet",
     name: "Obilet",
     priority: 8,
+    kind: "ota",
     canLive: false,
     noteLive: "",
     noteLinkOut: "obilet.com uçuş deep-link",
@@ -79,70 +103,34 @@ export const APPROVED_SOURCES: SourceDef[] = [
     id: "kiwi",
     name: "Kiwi.com",
     priority: 9,
-    canLive: true,
-    noteLive: "Tequila API ile canlı fiyat",
+    kind: "ota",
+    canLive: false,
+    noteLive: "",
     noteLinkOut: "kiwi.com deep-link",
   },
   {
     id: "momondo",
     name: "Momondo",
     priority: 10,
+    kind: "ota",
     canLive: false,
     noteLive: "",
     noteLinkOut: "momondo.com deep-link",
   },
   {
-    id: "thy",
-    name: "Turkish Airlines",
-    priority: 11,
-    canLive: false,
-    noteLive: "",
-    noteLinkOut: "turkishairlines.com deep-link",
-  },
-  {
-    id: "pegasus",
-    name: "Pegasus",
-    priority: 12,
-    canLive: false,
-    noteLive: "",
-    noteLinkOut: "flypgs.com deep-link",
-  },
-  {
-    id: "ajet",
-    name: "AJet",
-    priority: 13,
-    canLive: false,
-    noteLive: "",
-    noteLinkOut: "ajet.com deep-link",
-  },
-  {
-    id: "sunexpress",
-    name: "SunExpress",
-    priority: 14,
-    canLive: false,
-    noteLive: "",
-    noteLinkOut: "sunexpress.com deep-link",
-  },
-  {
-    id: "corendon",
-    name: "Corendon Airlines",
-    priority: 15,
-    canLive: false,
-    noteLive: "",
-    noteLinkOut: "corendonairlines.com deep-link",
-  },
-  {
     id: "expedia",
     name: "Expedia",
-    priority: 16,
+    priority: 11,
+    kind: "ota",
     canLive: false,
     noteLive: "",
-    noteLinkOut: "expedia.com flights deep-link",
+    noteLinkOut: "expedia.com deep-link",
   },
   {
     id: "booking",
     name: "Booking.com Flights",
-    priority: 17,
+    priority: 12,
+    kind: "ota",
     canLive: false,
     noteLive: "",
     noteLinkOut: "Booking flights deep-link",
@@ -150,7 +138,8 @@ export const APPROVED_SOURCES: SourceDef[] = [
   {
     id: "trip",
     name: "Trip.com",
-    priority: 18,
+    priority: 13,
+    kind: "ota",
     canLive: false,
     noteLive: "",
     noteLinkOut: "trip.com deep-link",
@@ -158,19 +147,43 @@ export const APPROVED_SOURCES: SourceDef[] = [
   {
     id: "edreams",
     name: "eDreams",
-    priority: 19,
+    priority: 14,
+    kind: "ota",
     canLive: false,
     noteLive: "",
     noteLinkOut: "edreams.com deep-link",
   },
 ];
 
+/** Havayolları — OpenFlights TR rotaları + güncel taşıyıcı listesi. */
+const AIRLINE_SOURCES: SourceDef[] = data.airlines
+  .slice()
+  .sort((a, b) => a.name.localeCompare(b.name, "tr"))
+  .map((a, idx) => ({
+    id: `airline-${a.iata.toLowerCase()}`,
+    name: a.name,
+    priority: 100 + idx,
+    kind: "airline" as const,
+    airlineIata: a.iata,
+    canLive: false,
+    noteLive: "",
+    noteLinkOut: `${a.name} (${a.iata}) rezervasyon / arama deep-link`,
+  }));
+
+export const APPROVED_SOURCES: SourceDef[] = [
+  ...OTA_SOURCES,
+  ...AIRLINE_SOURCES,
+];
+
+export const SOURCE_COUNT = APPROVED_SOURCES.length;
+export const AIRLINE_SOURCE_COUNT = AIRLINE_SOURCES.length;
+
 export function hasSkyscannerKey(): boolean {
-  return Boolean(process.env.SKYSCANNER_RAPIDAPI_KEY);
+  return Boolean(process.env.SKYSCANNER_RAPIDAPI_KEY?.trim());
 }
 
 export function hasKiwiKey(): boolean {
-  return Boolean(process.env.KIWI_API_KEY);
+  return Boolean(process.env.KIWI_API_KEY?.trim());
 }
 
 export function hasAmadeusKeys(): boolean {
@@ -196,6 +209,7 @@ export function resolveSourceMode(sourceId: string): OfferMode {
   if (forceDemo()) return "demo";
   if (sourceId === "skyscanner" && hasSkyscannerKey()) return "live";
   if (sourceId === "kiwi" && hasKiwiKey()) return "live";
+  if (sourceId === "google-flights") return "link-out";
   return "link-out";
 }
 
@@ -207,7 +221,7 @@ export function buildSourceStatuses(demo: boolean): SourceStatus[] {
         name: s.name,
         priority: s.priority,
         mode: "demo" as const,
-        note: "Demo modu — örnek fiyatlar",
+        note: "Demo",
       };
     }
     const mode = resolveSourceMode(s.id);

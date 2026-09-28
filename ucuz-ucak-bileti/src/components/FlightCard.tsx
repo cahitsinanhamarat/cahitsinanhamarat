@@ -15,6 +15,7 @@ function formatPrice(price: number | null): string {
 function modeLabel(mode: FlightOffer["mode"]): string {
   if (mode === "live") return "Canlı fiyat";
   if (mode === "demo") return "Demo";
+  if (mode === "preview") return "Önizleme fiyat";
   return "Link-out";
 }
 

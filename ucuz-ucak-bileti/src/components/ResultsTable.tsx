@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { formatTrDate } from "@/lib/dates";
+import { stopsLabel } from "@/lib/deep-links";
 import type { ResultRow, SearchResponse, SourceStatus } from "@/lib/types";
 
 type Props = {
@@ -69,7 +70,6 @@ export function ResultsTable({ result }: Props) {
         }
         return a.sourcePriority - b.sourcePriority;
       }
-      // smart: API sırası (zaten fiyat → tarih → kaynak)
       return 0;
     });
     return sorted;
@@ -91,14 +91,15 @@ export function ResultsTable({ result }: Props) {
           Sonuç tablosu
         </h2>
         <p className="text-sm text-[var(--muted)]">
-          {result.rowsTotal} satır · her satırda kaynak + gidiş + dönüş + süre
-          + fiyat · farklı kaynaklar farklı tarihlerde olabilir
+          {result.rowsTotal} satır · {result.sourceCount} kaynak (
+          {result.airlineCount} havayolu) · her satırda gidiş / dönüş / süre /
+          aktarma / fiyat
+          {result.nonstopOnly ? " · yalnızca aktarmasız niyeti" : ""}
         </p>
       </div>
 
-      {/* Kaynak başına özet — kendi tarihleriyle */}
       <div className="mb-6 overflow-x-auto rounded-xl border border-[var(--line)] bg-white/80">
-        <table className="w-full min-w-[640px] text-left text-sm">
+        <table className="w-full min-w-[720px] text-left text-sm">
           <caption className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
             Kaynak başına en iyi satır (kendi tarihleri)
           </caption>
@@ -108,6 +109,7 @@ export function ResultsTable({ result }: Props) {
               <th className="px-3 py-2 font-semibold">Gidiş</th>
               <th className="px-3 py-2 font-semibold">Dönüş</th>
               <th className="px-3 py-2 font-semibold">Süre</th>
+              <th className="px-3 py-2 font-semibold">Aktarma</th>
               <th className="px-3 py-2 font-semibold">Fiyat</th>
               <th className="px-3 py-2 font-semibold">Link</th>
             </tr>
@@ -138,6 +140,9 @@ export function ResultsTable({ result }: Props) {
                 </td>
                 <td className="px-3 py-2">{c.stayDays} gün</td>
                 <td className="px-3 py-2">
+                  <StopsBadge stops={c.stops} stopCount={null} />
+                </td>
+                <td className="px-3 py-2">
                   <PriceCell price={c.price} />
                 </td>
                 <td className="px-3 py-2">
@@ -165,11 +170,14 @@ export function ResultsTable({ result }: Props) {
           {formatTrDate(result.overallCheapest.outboundDate)} →{" "}
           {formatTrDate(result.overallCheapest.returnDate)} (
           {result.overallCheapest.stayDays} gün) ·{" "}
-          <PriceCell price={result.overallCheapest.price} />
+          <StopsBadge
+            stops={result.overallCheapest.stops}
+            stopCount={result.overallCheapest.stopCount}
+          />{" "}
+          · <PriceCell price={result.overallCheapest.price} />
         </p>
       )}
 
-      {/* Filtreler */}
       <div className="mb-3 flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-1 text-xs font-semibold text-[var(--sea-deep)]">
           Kaynak
@@ -241,9 +249,8 @@ export function ResultsTable({ result }: Props) {
         filtreli satır
       </p>
 
-      {/* Ana sonuç tablosu */}
       <div className="overflow-x-auto rounded-xl border border-[var(--line)] bg-white/85 shadow-[0_8px_30px_rgba(11,61,74,0.06)]">
-        <table className="w-full min-w-[720px] text-left text-sm">
+        <table className="w-full min-w-[800px] text-left text-sm">
           <thead className="bg-[var(--sea-deep)] text-xs text-white">
             <tr>
               <th className="px-3 py-3 font-semibold">#</th>
@@ -251,6 +258,7 @@ export function ResultsTable({ result }: Props) {
               <th className="px-3 py-3 font-semibold">Gidiş</th>
               <th className="px-3 py-3 font-semibold">Dönüş</th>
               <th className="px-3 py-3 font-semibold">Süre</th>
+              <th className="px-3 py-3 font-semibold">Aktarma</th>
               <th className="px-3 py-3 font-semibold">Fiyat</th>
               <th className="px-3 py-3 font-semibold">Satın al</th>
             </tr>
@@ -262,7 +270,7 @@ export function ResultsTable({ result }: Props) {
             {!shown.length && (
               <tr>
                 <td
-                  colSpan={7}
+                  colSpan={8}
                   className="px-3 py-10 text-center text-[var(--muted)]"
                 >
                   Bu filtrede satır yok.
@@ -283,7 +291,11 @@ export function ResultsTable({ result }: Props) {
         </button>
       )}
 
-      <SourceLegend sources={result.sources} />
+      <SourceLegend
+        sources={result.sources}
+        sourceCount={result.sourceCount}
+        airlineCount={result.airlineCount}
+      />
     </section>
   );
 }
@@ -296,7 +308,11 @@ function ResultTableRow({ row, rank }: { row: ResultRow; rank: number }) {
         <span className="font-medium text-[var(--sea-deep)]">{row.source}</span>
         <span className="mt-0.5 block text-[10px] text-[var(--muted)]">
           öncelik {row.sourcePriority}
-          {row.mode === "live" ? " · canlı" : ""}
+          {row.mode === "live"
+            ? " · canlı"
+            : row.mode === "preview"
+              ? " · önizleme"
+              : ""}
         </span>
       </td>
       <td className="px-3 py-2.5 whitespace-nowrap">
@@ -313,7 +329,10 @@ function ResultTableRow({ row, rank }: { row: ResultRow; rank: number }) {
       </td>
       <td className="px-3 py-2.5 whitespace-nowrap">{row.stayDays} gün</td>
       <td className="px-3 py-2.5">
-        <PriceCell price={row.price} />
+        <StopsBadge stops={row.stops} stopCount={row.stopCount} />
+      </td>
+      <td className="px-3 py-2.5">
+        <PriceCell price={row.price} mode={row.mode} />
       </td>
       <td className="px-3 py-2.5">
         <a
@@ -329,7 +348,43 @@ function ResultTableRow({ row, rank }: { row: ResultRow; rank: number }) {
   );
 }
 
-function PriceCell({ price }: { price: number | null }) {
+function StopsBadge({
+  stops,
+  stopCount,
+}: {
+  stops: ResultRow["stops"];
+  stopCount: number | null;
+}) {
+  const label = stopsLabel(stops, stopCount);
+  const tone =
+    stops === "nonstop"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+      : stops === "connecting"
+        ? "border-amber-200 bg-amber-50 text-amber-900"
+        : "border-[var(--line)] bg-white text-[var(--muted)]";
+  return (
+    <span
+      className={`inline-block whitespace-nowrap rounded border px-2 py-0.5 text-xs font-medium ${tone}`}
+      title={
+        stops === "nonstop"
+          ? "Arama aktarmasız niyeti / deep-link stops=0"
+          : stops === "connecting"
+            ? "Aktarmalı uçuş"
+            : "Kesin stop sayısı kaynak sitesinde"
+      }
+    >
+      {label}
+    </span>
+  );
+}
+
+function PriceCell({
+  price,
+  mode,
+}: {
+  price: number | null;
+  mode?: ResultRow["mode"];
+}) {
   if (price == null) {
     return (
       <span className="rounded border border-[var(--line)] px-2 py-0.5 text-xs font-medium text-[var(--muted)]">
@@ -338,26 +393,39 @@ function PriceCell({ price }: { price: number | null }) {
     );
   }
   return (
-    <span
-      className="font-semibold text-[var(--accent)]"
-      style={{ fontFamily: "var(--font-display), Georgia, serif" }}
-    >
-      {new Intl.NumberFormat("tr-TR", {
-        style: "currency",
-        currency: "TRY",
-        maximumFractionDigits: 0,
-      }).format(price)}
+    <span className="inline-flex flex-col">
+      <span
+        className="font-semibold text-[var(--accent)]"
+        style={{ fontFamily: "var(--font-display), Georgia, serif" }}
+      >
+        {new Intl.NumberFormat("tr-TR", {
+          style: "currency",
+          currency: "TRY",
+          maximumFractionDigits: 0,
+        }).format(price)}
+      </span>
+      {mode === "preview" && (
+        <span className="text-[10px] text-[var(--muted)]">önizleme</span>
+      )}
     </span>
   );
 }
 
-function SourceLegend({ sources }: { sources: SourceStatus[] }) {
+function SourceLegend({
+  sources,
+  sourceCount,
+  airlineCount,
+}: {
+  sources: SourceStatus[];
+  sourceCount: number;
+  airlineCount: number;
+}) {
   return (
     <details className="mt-8 rounded-xl border border-[var(--line)] bg-white/60 p-4">
       <summary className="cursor-pointer font-semibold text-[var(--sea-deep)]">
-        19 kaynak
+        {sourceCount} kaynak · {airlineCount} havayolu (Skyscanner #1)
       </summary>
-      <ul className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+      <ul className="mt-3 grid max-h-80 gap-2 overflow-y-auto text-sm sm:grid-cols-2">
         {sources.map((s) => (
           <li key={s.id} className="border-b border-[var(--line)] pb-1 text-sm">
             <span className="text-xs text-[var(--muted)]">{s.priority}. </span>

@@ -166,6 +166,10 @@ export async function searchAmadeus(
               destination,
               pair,
             }),
+            stops: "unknown" as const,
+
+            stopCount: null,
+
             mode: "live",
           });
         }

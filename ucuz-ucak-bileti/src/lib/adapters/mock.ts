@@ -85,6 +85,10 @@ export function buildDemoOffers(
           destination,
           pair: skPair,
         }),
+        stops: "unknown" as const,
+
+        stopCount: null,
+
         mode: "demo",
       });
 
@@ -116,6 +120,10 @@ export function buildDemoOffers(
         },
         stayDays: pair.stayDays,
         purchaseUrl: buildDeepLink(alt.id, { origin, destination, pair }),
+        stops: "unknown" as const,
+
+        stopCount: null,
+
         mode: "demo",
       });
     }

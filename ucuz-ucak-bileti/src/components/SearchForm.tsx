@@ -10,6 +10,8 @@ export type SearchFormValues = {
   startDate: string;
   endDate: string;
   stayDays: number[];
+  /** Yalnızca aktarmasız */
+  nonstopOnly: boolean;
 };
 
 export { DEFAULT_STAY_DAYS };
@@ -152,6 +154,26 @@ export function SearchForm({ values, onChange, onSubmit, loading }: Props) {
             : "yok — en az bir süre seçin"}
         </p>
       </fieldset>
+
+      <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-[var(--line)] bg-white/80 px-4 py-3 text-sm">
+        <input
+          type="checkbox"
+          className="mt-0.5 h-4 w-4 accent-[var(--sea-deep)]"
+          checked={values.nonstopOnly}
+          onChange={(e) =>
+            onChange({ ...values, nonstopOnly: e.target.checked })
+          }
+        />
+        <span>
+          <span className="font-semibold text-[var(--sea-deep)]">
+            Yalnızca aktarmasız
+          </span>
+          <span className="mt-0.5 block text-xs text-[var(--muted)]">
+            Açıkken deep-link’lere stops=0 / preferdirects eklenir; sonuçlarda
+            aktarma sütunu “Aktarmasız” beklenen niyeti gösterir.
+          </span>
+        </span>
+      </label>
 
       <button
         type="submit"

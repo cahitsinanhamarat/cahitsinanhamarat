@@ -1,31 +1,30 @@
 # Ucuz Uçak Bileti — Arama Planı (ücretsiz yol)
 
-Türkiye çıkışlı ucuz gidiş-dönüş arama. Onaylı **19 kaynak**; **Skyscanner her zaman #1**.  
-**Ücretli API anahtarı gerekmez.** Scraping / CAPTCHA bypass / ToS kaçınma yok.
+Türkiye çıkışlı ucuz gidiş-dönüş arama. **Skyscanner her zaman #1**.  
+Kaynaklar: onaylı OTAlar + **Türkiye’ye/Türkiye’den uçan ~111 havayolu**.  
+**Ücretli API anahtarı gerekmez.** CAPTCHA bypass / credential stuffing yok.
 
 ## Ürün özeti
 
-Kullanıcı kalkış (varsayılan İstanbul), varış, tarih aralığı ve **konaklama süresi 2–21 gün (çoklu seçim)** verir. Sistem aralık + süreye uyan tüm gidiş-dönüş tarih çiftlerini üretir. Her çift için 19 onaylı kaynağa hazır satın alma / arama deep-link’i sunulur (Skyscanner birincil CTA). Gerçek fiyat her zaman kaynak sitesinde görülür.
+Kullanıcı kalkış (varsayılan İstanbul), varış, tarih aralığı, **konaklama 2–21 gün (çoklu)** ve isteğe bağlı **“yalnızca aktarmasız”** filtresi verir. Sistem tarih çiftlerini üretir; her (kaynak × tarih) için deep-link + mümkünse ücretsiz fiyat önizlemesi gösterir.
 
-## Ücretsiz strateji (ship edilen yol)
+## Ücretsiz strateji
 
 | Yaklaşım | Durum |
 |----------|--------|
-| Deep-link çoklu kaynak karşılaştırma | **Birincil ürün** |
-| Sahte / demo fiyat ile “en ucuz” yanılsaması | **Kaldırıldı** (dürüst etiketleme) |
-| Ücretli Skyscanner / Kiwi / Amadeus | **Gerekmez**; isteğe bağlı bonus (anahtar varsa) |
-| CAPTCHA bypass / brittle scraper | **Yasak** |
-| Ücretsiz sandbox kaydı (kredi kartı yok) | Bu VM’de kullanıcı e-postası olmadan credential alınamadı; ürüne bağlı değil |
+| Deep-link çoklu kaynak (OTA + TR-operating airlines) | **Birincil** |
+| Google Flights public best-effort fiyat önizleme | **İkincil** (`mode: preview`, CAPTCHA bypass yok) |
+| Sahte / demo fiyat | **Yok** |
+| Ücretli Skyscanner / Kiwi / Amadeus | İsteğe bağlı bonus |
+| CAPTCHA bypass / brittle exploit scraper | **Yasak** |
 
 ### Akış
 
-1. `expandDatePairs(start, end, stayDays[2…21])` → geçerli (gidiş, dönüş) çiftleri  
-2. Çok fazla çiftte örnekleme (~60 çift × 19 kaynak ≈ tablo satırları)  
-3. Her **(kaynak × tarih çifti)** → `ResultRow` kendi `outboundDate` / `returnDate` / `stayDays` / `price?` / `purchaseUrl` ile  
-4. Farklı kaynaklar farklı tarihlerde “en iyi” olabilir — tarihler asla tek ortak tarihe indirgenmez  
-5. UI sonuç **tablosu**: Kaynak | Gidiş | Dönüş | Süre | Fiyat (`Sitede gör` veya gerçek) | Link  
-6. Üst özet: kaynak başına en iyi satır (kendi tarihleriyle) + varsa genel en ucuz  
-7. Sahte fiyat yok; ücretsiz yolda fiyat sütunu “Sitede gör”  
+1. `expandDatePairs` → (gidiş, dönüş) çiftleri (örnekleme ~20)  
+2. `ResultRow` = kaynak × tarih; kendi tarihleri korunur  
+3. `nonstopOnly` → deep-link’lere `stops=0` / `preferdirects` / eşdeğeri  
+4. Aktarma sütunu: filtre açıksa **Aktarmasız**; kapalıysa **Aktarmasız / aktarmalı** (bilinmiyor son çare)  
+5. Fiyat: önizleme varsa TRY sayı; yoksa **Sitede gör**  
 
 ### Veri modeli (özet)
 
@@ -33,73 +32,40 @@ Kullanıcı kalkış (varsayılan İstanbul), varış, tarih aralığı ve **kon
 type ResultRow = {
   source: string; sourcePriority: number;
   outboundDate: string; returnDate: string; stayDays: number;
-  price: number | null; // null → UI “Sitede gör”
-  purchaseUrl: string;
+  stops: "nonstop" | "connecting" | "unknown";
+  stopCount: number | null;
+  price: number | null; // null → “Sitede gör”
+  purchaseUrl: string; mode: "live" | "link-out" | "preview" | "demo";
 };
 ```
 
-### Mimari
+### Havalimanı
 
+- OurAirports → ~5328 IATA; `AirportPicker` aramalı combobox  
+- Seçim: `onMouseDown` + `preventDefault` (blur/click yarışı düzeltmesi)  
+- Çoklu havalimanı şehirler: IST / SAW ayrı  
+
+### Aktarmasız filtresi
+
+- Form: “Yalnızca aktarmasız” checkbox → `SearchRequest.nonstopOnly`  
+- Deep-link: Skyscanner `preferdirects`+`stops=0`, Kayak `fs=stops=0`, Kiwi `stopNumber=0`, GF `tt:o`, vb.  
+- Sonuç tablosu **Aktarma** sütunu her satırda görünür  
+
+### Kaynaklar
+
+1. Skyscanner (TR) — #1  
+2–14. Enuygun, Kayak, Google Flights, Turna, Ucuzabilet, Biletall, Obilet, Kiwi, Momondo, Expedia, Booking, Trip.com, eDreams  
+15+. `src/data/tr-airlines.json` — THY, Pegasus, AJet, SunExpress, Corendon, Lufthansa, Qatar, Emirates, Wizz, AF, KLM, … (~111)
+
+## Konaklama
+
+- 2…21 gün dahil, çoklu seçim; varsayılan `[3,4]`
+
+## Çalıştırma
+
+```bash
+cd ucuz-ucak-bileti && npm install && npm run build && npm start
+# CLI: npm run search -- --from IST --to AMS --start 2026-04-01 --end 2026-06-01 --stay 3,4 --nonstop
 ```
-Türkçe UI  →  POST /api/search  →  tarih genişletme + ResultRow tablosu
-                GET /api/status     (strategy: free-deep-link-compare)
-                CLI: npm run search
-```
 
-### Havalimanı / şehir listesi
-
-- Kaynak: **OurAirports** açık veri (`airports.csv`) → `src/data/airports.json`
-- Filtre: large + medium IATA; small yalnızca `scheduled_service=yes`
-- Yaklaşık **5300+** havalimanı; TR öncelikli sıralama
-- UX: aramalı combobox (`AirportPicker`) — düz `<select>` değil
-- Çoklu havalimanlı şehirler ayrı IATA (ör. İstanbul **IST** / **SAW**)
-- Yenileme: `npx tsx scripts/build-airports.ts /path/to/airports.csv`
-
-### Sonuç tablosu (per-source tarih + fiyat)
-
-- `ResultRow`: her satırda kaynak, gidiş, dönüş, süre, fiyat|null, link
-- Farklı kaynaklar farklı tarih çiftlerinde olabilir; tarihler gizlenmez
-- Ücretsiz yolda fiyat = “Sitede gör” (uydurma yok)
-- Özet: kaynak başına en iyi satır (kendi tarihleriyle)
-
-## Konaklama süresi
-
-- Seçenekler: **2, 3, 4, …, 21** (dahil), çoklu seçim  
-- Varsayılan: `[3, 4]`  
-- Preset: 3+4, 1 hafta, tümü, temizle  
-- API / CLI: `normalizeStayDays` ile 2–21 dışındakiler elenir  
-
-## 19 kaynak (hepsi link-out / ücretsiz)
-
-Hepsi deep-link; canlı fiyat API’si zorunlu değil.
-
-1. Skyscanner (TR) — birincil CTA  
-2. Enuygun  
-3. Kayak (TR)  
-4. Google Flights  
-5. Turna  
-6. Ucuzabilet  
-7. Biletall  
-8. Obilet (uçuş)  
-9. Kiwi.com  
-10. Momondo  
-11. Turkish Airlines  
-12. Pegasus  
-13. AJet  
-14. SunExpress  
-15. Corendon Airlines  
-16. Expedia  
-17. Booking.com Flights  
-18. Trip.com  
-19. eDreams  
-
-İsteğe bağlı (ücretli, kullanıcı isterse): RapidAPI Skyscanner, Kiwi Tequila, Amadeus — ürün bunlara bağlı değildir.
-
-## Ortam değişkenleri
-
-Ücretsiz yol için **hiçbiri zorunlu değil**.  
-`.env.example` yalnızca isteğe bağlı bonus anahtarları listeler.
-
-## Repo
-
-`/workspace/ucuz-ucak-bileti/` — Next.js App Router, Türkçe UI + CLI.
+Store kopyası: `/cursor/stores/bc-946a5cbe-da64-4be2-ae4f-ccd2e255277f/docs/flight-search-plan.md`

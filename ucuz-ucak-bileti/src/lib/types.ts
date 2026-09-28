@@ -1,4 +1,6 @@
-export type OfferMode = "live" | "link-out" | "demo";
+export type OfferMode = "live" | "link-out" | "demo" | "preview";
+
+export type StopsKind = "nonstop" | "connecting" | "unknown";
 
 export type FlightLeg = {
   departure: string;
@@ -19,6 +21,8 @@ export type FlightOffer = {
   stayDays: number;
   purchaseUrl: string;
   mode: OfferMode;
+  stops: StopsKind;
+  stopCount: number | null;
 };
 
 export type SourceLink = {
@@ -28,7 +32,6 @@ export type SourceLink = {
   url: string;
 };
 
-/** Ücretsiz yol birimi: bir gidiş-dönüş tarih çifti + 19 kaynak linki. */
 export type TripOption = {
   id: string;
   departure: string;
@@ -40,23 +43,21 @@ export type TripOption = {
   currency: "TRY";
 };
 
-/**
- * Sonuç tablosu satırı — kaynak başına kendi gidiş/dönüş tarihi + fiyat.
- * Farklı kaynaklar farklı tarih çiftlerinde “kazanabilir”; tarihler asla gizlenmez.
- */
 export type ResultRow = {
   id: string;
   sourceId: string;
   source: string;
   sourcePriority: number;
-  outboundDate: string; // YYYY-MM-DD
+  outboundDate: string;
   returnDate: string;
   stayDays: number;
-  /** Gerçek fiyat varsa; yoksa null → UI “Sitede gör” */
   price: number | null;
   currency: "TRY";
   purchaseUrl: string;
   mode: OfferMode;
+  /** aktarmasız | aktarmalı | bilinmiyor */
+  stops: StopsKind;
+  stopCount: number | null;
 };
 
 export type SearchRequest = {
@@ -65,6 +66,8 @@ export type SearchRequest = {
   startDate: string;
   endDate: string;
   stayDays: number[];
+  /** Yalnızca aktarmasız */
+  nonstopOnly?: boolean;
 };
 
 export type SourceStatus = {
@@ -89,7 +92,6 @@ export type AdapterSummary = {
   meta?: Record<string, unknown>;
 };
 
-/** Kaynak başına en ucuz satır özeti (kendi tarihleriyle). */
 export type CheapestPerSource = {
   source: string;
   sourcePriority: number;
@@ -98,15 +100,13 @@ export type CheapestPerSource = {
   stayDays: number;
   price: number | null;
   purchaseUrl: string;
+  stops: StopsKind;
 };
 
 export type SearchResponse = {
-  /** Ana tablo: kaynak × tarih satırları (her satırın kendi tarihleri). */
   rows: ResultRow[];
   rowsTotal: number;
-  /** Kaynak başına en iyi satır (fiyat varsa ucuza; yoksa en erken tarih). */
   cheapestPerSource: CheapestPerSource[];
-  /** Genel en ucuz satır (yalnızca price != null varken anlamlı). */
   overallCheapest: ResultRow | null;
   tripOptions: TripOption[];
   tripOptionsTotal: number;
@@ -116,7 +116,10 @@ export type SearchResponse = {
   datePairsSearched: number;
   freePath: boolean;
   demo: boolean;
+  nonstopOnly: boolean;
   keys: KeyPresence;
   adapters: AdapterSummary[];
+  sourceCount: number;
+  airlineCount: number;
   message?: string;
 };

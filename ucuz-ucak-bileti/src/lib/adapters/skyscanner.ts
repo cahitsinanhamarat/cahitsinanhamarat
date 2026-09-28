@@ -213,6 +213,10 @@ function parseSkyscannerPayload(
         ((item.pricingOptions as { agents?: { url?: string }[] }[])?.[0]
           ?.agents?.[0]?.url as string) ||
         buildDeepLink("skyscanner", { origin, destination, pair }),
+      stops: "unknown" as const,
+
+      stopCount: null,
+
       mode: "live",
     });
   }
