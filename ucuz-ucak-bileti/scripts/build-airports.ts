@@ -31,6 +31,10 @@ const CITY_OVERRIDE: Record<string, [string, string]> = {
   LGA: ["New York", "LaGuardia"],
 };
 
+/** Kapalı / kullanılmayan IATA (OurAirports’ta kalabiliyor). */
+const CLOSED_IATA = new Set(["ISL", "TXL", "SXF", "THF"]);
+
+
 async function main() {
   const csvPath = process.argv[2] || "/tmp/airports.csv";
   const rl = createInterface({
@@ -58,6 +62,7 @@ async function main() {
     });
     const iata = (row.iata_code || "").trim().toUpperCase();
     if (iata.length !== 3 || !/^[A-Z]+$/.test(iata)) continue;
+    if (CLOSED_IATA.has(iata)) continue;
     const typ = row.type || "";
     const sched = (row.scheduled_service || "").toLowerCase() === "yes";
     if (
@@ -65,6 +70,10 @@ async function main() {
       typ !== "medium_airport" &&
       !(typ === "small_airport" && sched)
     ) {
+      continue;
+    }
+    const apNameLower = (row.name || "").toLowerCase();
+    if (apNameLower.includes("closed") || apNameLower.includes("defunct")) {
       continue;
     }
     const prev = byIata.get(iata);
