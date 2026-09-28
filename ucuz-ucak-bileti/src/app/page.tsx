@@ -34,8 +34,10 @@ export default function HomePage() {
   }, []);
 
   async function runSearch() {
+    if (loading || pending) return;
     setLoading(true);
     setError(null);
+    setResult(null);
     try {
       const res = await fetch("/api/search", {
         method: "POST",
@@ -45,13 +47,13 @@ export default function HomePage() {
       const data = await res.json();
       if (!res.ok) {
         setError(data.error || "Arama başarısız");
-        setResult(null);
         return;
       }
-      startTransition(() => setResult(data as SearchResponse));
+      startTransition(() => {
+        setResult(data as SearchResponse);
+      });
     } catch {
       setError("Ağ hatası — tekrar deneyin.");
-      setResult(null);
     } finally {
       setLoading(false);
     }

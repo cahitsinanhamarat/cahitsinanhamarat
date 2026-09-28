@@ -47,7 +47,9 @@ export function FlightCard({ offer, rank, highlight }: Props) {
             <span className="rounded border border-[var(--line)] px-2 py-0.5">
               {modeLabel(offer.mode)}
             </span>
-            <span>{offer.stayDays} gün konaklama</span>
+            <span className="rounded border border-[var(--line)] px-2 py-0.5 font-medium">
+              {offer.stayDays} gün konaklama
+            </span>
           </div>
           <h3 className="mt-2 text-lg font-semibold text-[var(--sea-deep)]">
             {offer.airline}
