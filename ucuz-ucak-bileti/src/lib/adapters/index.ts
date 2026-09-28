@@ -3,7 +3,7 @@ import { searchKiwi } from "./kiwi";
 import { searchSkyscanner } from "./skyscanner";
 import type { AdapterResult } from "./types";
 import { expandDatePairs } from "../dates";
-import { buildTripOptions } from "../deep-links";
+import { buildResultRows, buildTripOptions } from "../deep-links";
 import {
   buildSourceStatuses,
   getKeyPresence,
@@ -12,17 +12,15 @@ import {
   hasSkyscannerKey,
 } from "../sources";
 import { normalizeStayDays } from "../stays";
-import type { FlightOffer, SearchRequest, SearchResponse } from "../types";
-
-const MODE_RANK: Record<FlightOffer["mode"], number> = {
-  live: 0,
-  demo: 1,
-  "link-out": 2,
-};
+import type {
+  CheapestPerSource,
+  FlightOffer,
+  ResultRow,
+  SearchRequest,
+  SearchResponse,
+} from "../types";
 
 export function sortOffers(a: FlightOffer, b: FlightOffer): number {
-  const modeDiff = MODE_RANK[a.mode] - MODE_RANK[b.mode];
-  if (modeDiff !== 0) return modeDiff;
   const aPriced = a.price != null;
   const bPriced = b.price != null;
   if (aPriced && !bPriced) return -1;
@@ -33,14 +31,98 @@ export function sortOffers(a: FlightOffer, b: FlightOffer): number {
   return a.sourcePriority - b.sourcePriority;
 }
 
+/** Fiyatlı önce (ucuzdan pahalıya); sonra gidiş tarihi; sonra kaynak önceliği. */
+export function sortResultRows(a: ResultRow, b: ResultRow): number {
+  const aP = a.price != null;
+  const bP = b.price != null;
+  if (aP && !bP) return -1;
+  if (!aP && bP) return 1;
+  if (aP && bP && a.price !== b.price) {
+    return (a.price as number) - (b.price as number);
+  }
+  if (a.outboundDate !== b.outboundDate) {
+    return a.outboundDate.localeCompare(b.outboundDate);
+  }
+  if (a.returnDate !== b.returnDate) {
+    return a.returnDate.localeCompare(b.returnDate);
+  }
+  if (a.stayDays !== b.stayDays) return a.stayDays - b.stayDays;
+  return a.sourcePriority - b.sourcePriority;
+}
+
+function cheapestPerSource(rows: ResultRow[]): CheapestPerSource[] {
+  const best = new Map<string, ResultRow>();
+  for (const row of rows) {
+    const prev = best.get(row.source);
+    if (!prev) {
+      best.set(row.source, row);
+      continue;
+    }
+    // Fiyatlı kazanır; ikisi fiyatlıysa ucuz; ikisi fiyatsızsa daha erken gidiş
+    const better = sortResultRows(row, prev) < 0;
+    if (better) best.set(row.source, row);
+  }
+  return [...best.values()]
+    .sort((a, b) => a.sourcePriority - b.sourcePriority)
+    .map((r) => ({
+      source: r.source,
+      sourcePriority: r.sourcePriority,
+      outboundDate: r.outboundDate,
+      returnDate: r.returnDate,
+      stayDays: r.stayDays,
+      price: r.price,
+      purchaseUrl: r.purchaseUrl,
+    }));
+}
+
+function offerToRow(o: FlightOffer): ResultRow {
+  const outboundDate = o.outbound.departure.slice(0, 10);
+  const returnDate = o.inbound.departure.slice(0, 10);
+  return {
+    id: `live-${o.id}`,
+    sourceId: o.source.toLowerCase().replace(/\s+/g, "-"),
+    source: o.source,
+    sourcePriority: o.sourcePriority,
+    outboundDate,
+    returnDate,
+    stayDays: o.stayDays,
+    price: o.price,
+    currency: "TRY",
+    purchaseUrl: o.purchaseUrl,
+    mode: o.mode,
+  };
+}
+
 function anyOptionalLiveKey(): boolean {
   return hasSkyscannerKey() || hasKiwiKey() || hasAmadeusKeys();
 }
 
+function emptyResponse(
+  sources: SearchResponse["sources"],
+  message: string
+): SearchResponse {
+  return {
+    rows: [],
+    rowsTotal: 0,
+    cheapestPerSource: [],
+    overallCheapest: null,
+    tripOptions: [],
+    tripOptionsTotal: 0,
+    tripOptionsSampled: false,
+    offers: [],
+    sources,
+    datePairsSearched: 0,
+    freePath: true,
+    demo: false,
+    keys: getKeyPresence(),
+    adapters: [],
+    message,
+  };
+}
+
 /**
- * Ücretsiz yol (varsayılan): tüm geçerli tarih çiftleri + 19 kaynak deep-link.
- * Ücretli API anahtarı yok / istenmiyor — scraping yok.
- * Anahtar varsa isteğe bağlı canlı fiyatlar eklenir (zorunlu değil).
+ * Ücretsiz yol: kaynak × tarih satırları (her satırın kendi gidiş/dönüş tarihi).
+ * Fiyat uydurulmaz. İsteğe bağlı canlı teklifler kendi tarihleriyle eklenir.
  */
 export async function runSearch(
   req: SearchRequest
@@ -49,11 +131,12 @@ export async function runSearch(
   const destination = req.destination.toUpperCase().trim();
   const stayDays = normalizeStayDays(req.stayDays);
 
+  // ~60 çift × 19 kaynak ≈ 1140 satır — tablo için makul
   const { pairs, total, sampled } = expandDatePairs(
     req.startDate,
     req.endDate,
     stayDays,
-    150
+    60
   );
 
   const sources = buildSourceStatuses(false).map((s) => ({
@@ -62,38 +145,28 @@ export async function runSearch(
     note:
       s.priority === 1
         ? "Ücretsiz deep-link (Skyscanner TR) — birincil satın alma yolu"
-        : s.note.startsWith("Resmi") || s.note.includes("deep-link")
+        : s.note.includes("deep-link")
           ? s.note
           : `${s.name} deep-link (ücretsiz yol)`,
   }));
 
   if (!pairs.length) {
-    return {
-      tripOptions: [],
-      tripOptionsTotal: 0,
-      tripOptionsSampled: false,
-      offers: [],
+    return emptyResponse(
       sources,
-      datePairsSearched: 0,
-      freePath: true,
-      demo: false,
-      keys: getKeyPresence(),
-      adapters: [],
-      message:
-        "Geçerli tarih çifti bulunamadı. Tarih aralığını veya konaklama süresini (2–21 gün) kontrol edin.",
-    };
+      "Geçerli tarih çifti bulunamadı. Tarih aralığını veya konaklama süresini (2–21 gün) kontrol edin."
+    );
   }
 
   const tripOptions = buildTripOptions(origin, destination, pairs);
-
-  // İsteğe bağlı: kullanıcı ücretli anahtar eklediyse canlı fiyat dene (zorunlu değil)
+  let rows = buildResultRows(origin, destination, pairs);
   let offers: FlightOffer[] = [];
   let adapters: AdapterResult[] = [];
   let freePath = true;
+
   let message =
-    `Ücretsiz yol: ${total} tarih çifti üretildi` +
-    (sampled ? ` (gösterilen ${pairs.length}, eşit aralıklı örnek)` : "") +
-    `. Her çift için 19 kaynak linki — Skyscanner birinci. Gerçek fiyat kaynak sitesinde; ücretli API yok.`;
+    `Ücretsiz yol: ${total} tarih çifti` +
+    (sampled ? ` (tabloda ${pairs.length} örnek)` : "") +
+    ` × 19 kaynak = ${rows.length} satır. Her satırda gidiş/dönüş tarihi görünür; fiyat ücretsiz API olmadan “Sitede gör”. Sahte fiyat yok.`;
 
   if (anyOptionalLiveKey()) {
     freePath = false;
@@ -107,46 +180,26 @@ export async function runSearch(
       sortOffers
     );
 
-    // Canlı fiyatları trip option’lara bağla (eşleşen tarih)
-    const priceByKey = new Map<string, number>();
-    for (const o of offers) {
-      if (o.price == null) continue;
-      const dep = o.outbound.departure.slice(0, 10);
-      const ret = o.inbound.departure.slice(0, 10);
-      const key = `${dep}|${ret}|${o.stayDays}`;
-      const prev = priceByKey.get(key);
-      if (prev == null || o.price < prev) priceByKey.set(key, o.price);
-    }
-    for (const t of tripOptions) {
-      const p = priceByKey.get(
-        `${t.departure}|${t.returnDate}|${t.stayDays}`
-      );
-      if (p != null) t.price = p;
-    }
-    tripOptions.sort((a, b) => {
-      if (a.price != null && b.price != null && a.price !== b.price) {
-        return a.price - b.price;
-      }
-      if (a.price != null && b.price == null) return -1;
-      if (a.price == null && b.price != null) return 1;
-      return a.departure.localeCompare(b.departure);
-    });
+    // Canlı teklifler KENDİ tarihleriyle ayrı satır olarak eklenir (paylaşılan tarih varsayılmaz)
+    const liveRows = offers.map(offerToRow);
+    rows = [...liveRows, ...rows];
 
     message =
-      offers.length > 0
-        ? `Canlı fiyat sinyali bulundu (${offers.length}); en ucuz tarih çiftleri üstte. Diğerleri deep-link.`
-        : message + " (İsteğe bağlı API anahtarları yanıt vermedi — deep-link devam.)";
-  } else {
-    // Fiyatsız: kronolojik sıra (zaten expand sıralı)
-    tripOptions.sort((a, b) => {
-      if (a.departure !== b.departure) {
-        return a.departure.localeCompare(b.departure);
-      }
-      return a.stayDays - b.stayDays;
-    });
+      liveRows.length > 0
+        ? `Canlı fiyatlı ${liveRows.length} satır (kaynakların kendi tarihleriyle) + deep-link satırları. Genel ve kaynak-başı en ucuz özet tablonun üstünde.`
+        : message + " (İsteğe bağlı API yanıt vermedi — deep-link satırları.)";
   }
 
+  rows.sort(sortResultRows);
+  const perSource = cheapestPerSource(rows);
+  const overallCheapest =
+    rows.find((r) => r.price != null) ?? null;
+
   return {
+    rows,
+    rowsTotal: rows.length,
+    cheapestPerSource: perSource,
+    overallCheapest,
     tripOptions,
     tripOptionsTotal: total,
     tripOptionsSampled: sampled,

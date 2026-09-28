@@ -5,7 +5,7 @@ import {
   SearchForm,
   type SearchFormValues,
 } from "@/components/SearchForm";
-import { TripCompareResults } from "@/components/TripCompareResults";
+import { ResultsTable } from "@/components/ResultsTable";
 import { DEFAULT_STAY_DAYS } from "@/lib/stays";
 import type { SearchResponse } from "@/lib/types";
 
@@ -106,7 +106,7 @@ export default function HomePage() {
         </div>
       )}
 
-      {result && <TripCompareResults result={result} />}
+      {result && <ResultsTable result={result} />}
 
       {!result && !loading && (
         <section className="mx-auto max-w-4xl px-4 pb-16 pt-2 text-sm text-[var(--muted)]">

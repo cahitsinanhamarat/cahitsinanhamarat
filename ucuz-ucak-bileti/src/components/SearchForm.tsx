@@ -1,6 +1,7 @@
 "use client";
 
-import { CITIES } from "@/lib/cities";
+import { AirportPicker } from "@/components/AirportPicker";
+import { AIRPORT_COUNT } from "@/lib/airports";
 import { DEFAULT_STAY_DAYS, STAY_OPTIONS } from "@/lib/stays";
 
 export type SearchFormValues = {
@@ -42,37 +43,18 @@ export function SearchForm({ values, onChange, onSubmit, loading }: Props) {
       }}
     >
       <div className="grid gap-4 sm:grid-cols-2">
-        <label className="flex flex-col gap-1.5 text-sm">
-          <span className="font-semibold text-[var(--sea-deep)]">Kalkış</span>
-          <select
-            className="rounded-lg border border-[var(--line)] bg-white px-3 py-2.5 outline-none focus:border-[var(--sea)]"
-            value={values.origin}
-            onChange={(e) => onChange({ ...values, origin: e.target.value })}
-          >
-            {CITIES.map((c) => (
-              <option key={c.iata} value={c.iata}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="flex flex-col gap-1.5 text-sm">
-          <span className="font-semibold text-[var(--sea-deep)]">Varış</span>
-          <select
-            className="rounded-lg border border-[var(--line)] bg-white px-3 py-2.5 outline-none focus:border-[var(--sea)]"
-            value={values.destination}
-            onChange={(e) =>
-              onChange({ ...values, destination: e.target.value })
-            }
-          >
-            {CITIES.filter((c) => c.iata !== values.origin).map((c) => (
-              <option key={c.iata} value={c.iata}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        <AirportPicker
+          label="Kalkış"
+          value={values.origin}
+          excludeIata={values.destination}
+          onChange={(iata) => onChange({ ...values, origin: iata })}
+        />
+        <AirportPicker
+          label="Varış"
+          value={values.destination}
+          excludeIata={values.origin}
+          onChange={(iata) => onChange({ ...values, destination: iata })}
+        />
 
         <label className="flex flex-col gap-1.5 text-sm">
           <span className="font-semibold text-[var(--sea-deep)]">
@@ -102,6 +84,12 @@ export function SearchForm({ values, onChange, onSubmit, loading }: Props) {
           />
         </label>
       </div>
+
+      <p className="mt-2 text-xs text-[var(--muted)]">
+        {AIRPORT_COUNT.toLocaleString("tr-TR")} havalimanı / şehir (OurAirports
+        açık veri). Yazarak arayın — düz &lt;select&gt; değil. Çoklu havalimanlı
+        şehirler ayrı kodlarla (ör. İstanbul IST / SAW).
+      </p>
 
       <fieldset className="mt-4">
         <legend className="mb-2 text-sm font-semibold text-[var(--sea-deep)]">

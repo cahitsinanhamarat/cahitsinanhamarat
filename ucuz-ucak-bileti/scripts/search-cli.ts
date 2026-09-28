@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 /**
  * CLI: npm run search -- --from IST --to AMS --start 2026-04-01 --end 2026-06-01 --stay 3,4
- * Stay: 2–21, virgülle çoklu (örn. 2,3,4 veya 7)
  */
 import { runSearch } from "../src/lib/adapters";
 import { normalizeStayDays } from "../src/lib/stays";
@@ -20,6 +19,13 @@ async function main() {
   const stay = normalizeStayDays(
     (arg("stay", "3,4") || "3,4").split(",").map((s) => Number(s.trim()))
   );
+  const sourceFilter = arg("source");
+  const limit = Number(arg("limit", "20")) || 20;
+
+  if (!/^[A-Za-z]{3}$/.test(origin) || !/^[A-Za-z]{3}$/.test(destination)) {
+    console.error("from/to must be 3-letter IATA codes");
+    process.exit(1);
+  }
 
   const result = await runSearch({
     origin,
@@ -34,29 +40,37 @@ async function main() {
   );
   console.log(
     result.freePath
-      ? "Mod: ÜCRETSİZ deep-link karşılaştırma\n"
-      : "Mod: deep-link + isteğe bağlı canlı fiyat\n"
+      ? "Mod: ÜCRETSİZ — satır başına kaynak + gidiş + dönüş + fiyat/sitede gör\n"
+      : "Mod: deep-link + canlı satırlar\n"
   );
   if (result.message) console.log(result.message + "\n");
 
-  const limit = Number(arg("limit", "15")) || 15;
-  for (const [i, t] of result.tripOptions.slice(0, limit).entries()) {
-    const price =
-      t.price != null ? ` ≈${t.price} TRY` : "";
+  console.log("--- Kaynak başına en iyi (kendi tarihleri) ---");
+  for (const c of result.cheapestPerSource) {
+    const price = c.price != null ? `${c.price} TRY` : "Sitede gör";
     console.log(
-      `${i + 1}. ${t.departure} → ${t.returnDate} (${t.stayDays}g)${price}`
-    );
-    console.log(`   Skyscanner: ${t.primaryUrl}`);
-    console.log(
-      `   Diğer: ${t.links
-        .slice(1, 5)
-        .map((l) => l.name)
-        .join(", ")}… (+${Math.max(0, t.links.length - 5)} kaynak)`
+      `#${c.sourcePriority} ${c.source}: ${c.outboundDate} → ${c.returnDate} (${c.stayDays}g) | ${price}`
     );
   }
 
-  if (result.tripOptions.length > limit) {
-    console.log(`\n… +${result.tripOptions.length - limit} tarih çifti daha`);
+  let rows = result.rows;
+  if (sourceFilter) {
+    rows = rows.filter((r) =>
+      r.source.toLowerCase().includes(sourceFilter.toLowerCase())
+    );
+  }
+
+  console.log("\n--- Tablo ---");
+  console.log("Kaynak | Gidiş | Dönüş | Süre | Fiyat | URL");
+  for (const [i, r] of rows.slice(0, limit).entries()) {
+    const price = r.price != null ? `${r.price} TRY` : "Sitede gör";
+    console.log(
+      `${i + 1}. ${r.source} | ${r.outboundDate} | ${r.returnDate} | ${r.stayDays}g | ${price}`
+    );
+    console.log(`   ${r.purchaseUrl}`);
+  }
+  if (rows.length > limit) {
+    console.log(`\n… +${rows.length - limit} satır daha (toplam ${rows.length})`);
   }
 }
 

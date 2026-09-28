@@ -1,6 +1,6 @@
 import type { DatePair } from "./dates";
 import { APPROVED_SOURCES } from "./sources";
-import type { FlightOffer, SourceLink, TripOption } from "./types";
+import type { FlightOffer, ResultRow, SourceLink, TripOption } from "./types";
 
 export type DeepLinkParams = {
   origin: string;
@@ -100,6 +100,36 @@ export function buildTripOptions(
       currency: "TRY" as const,
     };
   });
+}
+
+/**
+ * Tablo satırları: her (kaynak × tarih çifti) kendi gidiş/dönüş tarihini taşır.
+ * Fiyat üretilmez — ücretsiz yolda null (UI: “Sitede gör”).
+ */
+export function buildResultRows(
+  origin: string,
+  destination: string,
+  pairs: DatePair[]
+): ResultRow[] {
+  const rows: ResultRow[] = [];
+  for (const pair of pairs) {
+    for (const src of APPROVED_SOURCES) {
+      rows.push({
+        id: `row-${src.id}-${pair.departure}-${pair.returnDate}-${pair.stayDays}`,
+        sourceId: src.id,
+        source: src.name,
+        sourcePriority: src.priority,
+        outboundDate: pair.departure,
+        returnDate: pair.returnDate,
+        stayDays: pair.stayDays,
+        price: null,
+        currency: "TRY",
+        purchaseUrl: buildDeepLink(src.id, { origin, destination, pair }),
+        mode: "link-out",
+      });
+    }
+  }
+  return rows;
 }
 
 /** Geriye dönük: tek çift için link-out FlightOffer listesi. */
