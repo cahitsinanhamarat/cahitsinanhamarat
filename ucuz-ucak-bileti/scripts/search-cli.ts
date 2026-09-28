@@ -4,6 +4,7 @@
  */
 import { runSearch } from "../src/lib/adapters";
 import { stopsLabel } from "../src/lib/deep-links";
+import { isPriceAscending } from "../src/lib/sort-results";
 import { normalizeStayDays } from "../src/lib/stays";
 
 function arg(name: string, fallback?: string): string | undefined {
@@ -97,6 +98,12 @@ async function main() {
   console.log(`Skyscanner #1: ${skyFirst ? "PASS" : "FAIL"}`);
   console.log(`TR airlines (>=50): ${hasAirline ? "PASS" : "FAIL"} (${result.airlineCount})`);
   console.log(`Stops column intent: ${stopOk ? "PASS" : "FAIL"}`);
+  console.log(
+    `Price ascending (rows): ${isPriceAscending(result.rows) ? "PASS" : "FAIL"}`
+  );
+  console.log(
+    `Price ascending (per-source): ${isPriceAscending(result.cheapestPerSource) ? "PASS" : "FAIL"}`
+  );
   console.log(
     `Priced rows: ${result.rows.filter((r) => r.price != null).length}`
   );

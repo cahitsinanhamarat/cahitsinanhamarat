@@ -3,13 +3,14 @@
 import { useMemo, useState } from "react";
 import { formatTrDate } from "@/lib/dates";
 import { stopsLabel } from "@/lib/deep-links";
+import { sortResultRows } from "@/lib/sort-results";
 import type { ResultRow, SearchResponse, SourceStatus } from "@/lib/types";
 
 type Props = {
   result: SearchResponse;
 };
 
-type SortKey = "smart" | "date" | "source" | "price";
+type SortKey = "price" | "date" | "source";
 
 export function ResultsTable({ result }: Props) {
   const sources = useMemo(
@@ -32,7 +33,8 @@ export function ResultsTable({ result }: Props) {
 
   const [sourceFilter, setSourceFilter] = useState<string | "all">("all");
   const [stayFilter, setStayFilter] = useState<number | "all">("all");
-  const [sortKey, setSortKey] = useState<SortKey>("smart");
+  /** Varsayılan: fiyat ucuz → pahalı (kaynak kıran) */
+  const [sortKey, setSortKey] = useState<SortKey>("price");
   const [visible, setVisible] = useState(40);
   const [pricedOnly, setPricedOnly] = useState(false);
 
@@ -48,30 +50,27 @@ export function ResultsTable({ result }: Props) {
       rows = rows.filter((r) => r.price != null);
     }
     const sorted = [...rows];
-    sorted.sort((a, b) => {
-      if (sortKey === "price") {
-        if (a.price != null && b.price != null && a.price !== b.price) {
-          return a.price - b.price;
-        }
-        if (a.price != null && b.price == null) return -1;
-        if (a.price == null && b.price != null) return 1;
-      }
-      if (sortKey === "source") {
+    if (sortKey === "price") {
+      sorted.sort(sortResultRows);
+    } else if (sortKey === "source") {
+      sorted.sort((a, b) => {
         if (a.sourcePriority !== b.sourcePriority) {
           return a.sourcePriority - b.sourcePriority;
         }
-      }
-      if (sortKey === "date" || sortKey === "source" || sortKey === "price") {
+        return sortResultRows(a, b);
+      });
+    } else {
+      // date
+      sorted.sort((a, b) => {
         if (a.outboundDate !== b.outboundDate) {
           return a.outboundDate.localeCompare(b.outboundDate);
         }
         if (a.returnDate !== b.returnDate) {
           return a.returnDate.localeCompare(b.returnDate);
         }
-        return a.sourcePriority - b.sourcePriority;
-      }
-      return 0;
-    });
+        return sortResultRows(a, b);
+      });
+    }
     return sorted;
   }, [result.rows, sourceFilter, stayFilter, sortKey, pricedOnly]);
 
@@ -92,8 +91,8 @@ export function ResultsTable({ result }: Props) {
         </h2>
         <p className="text-sm text-[var(--muted)]">
           {result.rowsTotal} satır · {result.sourceCount} kaynak (
-          {result.airlineCount} havayolu) · her satırda gidiş / dönüş / süre /
-          aktarma / fiyat
+          {result.airlineCount} havayolu) · sıralama: fiyat ucuz → pahalı
+          (fiyatsız sonda; eşit fiyatta Skyscanner önceliği) · aktarma / kaynaklı
           {result.nonstopOnly ? " · yalnızca aktarmasız niyeti" : ""}
         </p>
       </div>
@@ -101,7 +100,7 @@ export function ResultsTable({ result }: Props) {
       <div className="mb-6 overflow-x-auto rounded-xl border border-[var(--line)] bg-white/80">
         <table className="w-full min-w-[720px] text-left text-sm">
           <caption className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
-            Kaynak başına en iyi satır (kendi tarihleri)
+            Kaynak başına en iyi satır — fiyat ucuz → pahalı (kaynaklı)
           </caption>
           <thead className="bg-[var(--foam)]/80 text-xs text-[var(--sea-deep)]">
             <tr>
@@ -223,10 +222,9 @@ export function ResultsTable({ result }: Props) {
             value={sortKey}
             onChange={(e) => setSortKey(e.target.value as SortKey)}
           >
-            <option value="smart">Akıllı (fiyat → tarih → kaynak)</option>
+            <option value="price">Fiyat (ucuz → pahalı)</option>
             <option value="date">Gidiş tarihi</option>
             <option value="source">Kaynak önceliği</option>
-            <option value="price">Fiyat</option>
           </select>
         </label>
         {hasAnyPrice && (

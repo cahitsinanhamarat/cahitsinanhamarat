@@ -12,6 +12,10 @@ import {
   hasKiwiKey,
   hasSkyscannerKey,
 } from "../sources";
+import {
+  sortCheapestPerSource,
+  sortResultRows,
+} from "../sort-results";
 import { normalizeStayDays } from "../stays";
 import type {
   CheapestPerSource,
@@ -21,34 +25,7 @@ import type {
   SearchResponse,
 } from "../types";
 
-export function sortOffers(a: FlightOffer, b: FlightOffer): number {
-  const aPriced = a.price != null;
-  const bPriced = b.price != null;
-  if (aPriced && !bPriced) return -1;
-  if (!aPriced && bPriced) return 1;
-  if (aPriced && bPriced && a.price !== b.price) {
-    return (a.price as number) - (b.price as number);
-  }
-  return a.sourcePriority - b.sourcePriority;
-}
-
-export function sortResultRows(a: ResultRow, b: ResultRow): number {
-  const aP = a.price != null;
-  const bP = b.price != null;
-  if (aP && !bP) return -1;
-  if (!aP && bP) return 1;
-  if (aP && bP && a.price !== b.price) {
-    return (a.price as number) - (b.price as number);
-  }
-  if (a.outboundDate !== b.outboundDate) {
-    return a.outboundDate.localeCompare(b.outboundDate);
-  }
-  if (a.returnDate !== b.returnDate) {
-    return a.returnDate.localeCompare(b.returnDate);
-  }
-  if (a.stayDays !== b.stayDays) return a.stayDays - b.stayDays;
-  return a.sourcePriority - b.sourcePriority;
-}
+export { sortOffers, sortResultRows } from "../sort-results";
 
 function cheapestPerSource(rows: ResultRow[]): CheapestPerSource[] {
   const best = new Map<string, ResultRow>();
@@ -58,9 +35,8 @@ function cheapestPerSource(rows: ResultRow[]): CheapestPerSource[] {
       best.set(row.source, row);
     }
   }
-  return [...best.values()]
-    .sort((a, b) => a.sourcePriority - b.sourcePriority)
-    .map((r) => ({
+  return sortCheapestPerSource(
+    [...best.values()].map((r) => ({
       source: r.source,
       sourcePriority: r.sourcePriority,
       outboundDate: r.outboundDate,
@@ -69,7 +45,8 @@ function cheapestPerSource(rows: ResultRow[]): CheapestPerSource[] {
       price: r.price,
       purchaseUrl: r.purchaseUrl,
       stops: r.stops,
-    }));
+    }))
+  );
 }
 
 function anyOptionalLiveKey(): boolean {

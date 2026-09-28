@@ -24,7 +24,8 @@ Kullanıcı kalkış (varsayılan İstanbul), varış, tarih aralığı, **konak
 2. `ResultRow` = kaynak × tarih; kendi tarihleri korunur  
 3. `nonstopOnly` → deep-link’lere `stops=0` / `preferdirects` / eşdeğeri  
 4. Aktarma sütunu: filtre açıksa **Aktarmasız**; kapalıysa **Aktarmasız / aktarmalı** (bilinmiyor son çare)  
-5. Fiyat: önizleme varsa TRY sayı; yoksa **Sitede gör**  
+5. **Sıralama:** fiyat **ucuz → pahalı** (birincil); fiyatsız (link-only) satırlar sonda; eşit fiyatta kaynak önceliği (Skyscanner #1) kıran. Kaynak başına özet de aynı kural (`sort-results.ts`).  
+6. Fiyat: önizleme varsa TRY sayı; yoksa **Sitede gör**  
 
 ### Veri modeli (özet)
 
