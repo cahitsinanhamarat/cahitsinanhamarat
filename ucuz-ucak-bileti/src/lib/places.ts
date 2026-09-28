@@ -147,13 +147,37 @@ function sortCommercial(list: Airport[]): Airport[] {
   return [...list].sort((a, b) => rank(a.iata) - rank(b.iata));
 }
 
-function normCity(city: string): string {
-  return city
+/** ASCII katlama — Türkçe İ/ı dahil (toLowerCase yetmez: "İstanbul" → "i̇stanbul"). */
+export function foldText(s: string): string {
+  return s
+    .replace(/\u0130/g, "i") // İ
+    .replace(/\u0131/g, "i") // ı
     .normalize("NFD")
     .replace(/\p{M}/gu, "")
     .toLowerCase()
     .trim();
 }
+
+function normCity(city: string): string {
+  return foldText(city);
+}
+
+/** Sorgu takma adları → şehir arama metni */
+const QUERY_ALIASES: Record<string, string> = {
+  nyc: "new york",
+  ny: "new york",
+  "newyork": "new york",
+  lon: "london",
+  ldn: "london",
+  par: "paris",
+  mil: "milan",
+  milano: "milan",
+  roma: "rome",
+  moskova: "moscow",
+  moscow: "moscow",
+  dubay: "dubai",
+  ist: "istanbul", // IATA da ayrıca eşleşir; şehir satırını da öne alır
+};
 
 function cityKey(country: string, city: string): string {
   return `${country.toUpperCase()}|${normCity(city)}`;
@@ -304,9 +328,14 @@ export type PlaceSuggestion =
 
 /**
  * Arama: çoklu havalimanlı şehirlerde önce “tüm havalimanları” satırı.
+ * Kritik: sorguyu foldText ile katla — düz toLowerCase Türkçe İ yüzünden
+ * "İstanbul" aramasında CITY satırını kaçırıyordu.
  */
 export function searchPlaces(query: string, limit = 40): PlaceSuggestion[] {
-  const q = query.trim().toLowerCase();
+  const raw = query.trim();
+  let q = foldText(raw);
+  if (QUERY_ALIASES[q]) q = QUERY_ALIASES[q];
+
   const out: PlaceSuggestion[] = [];
   const seenAirport = new Set<string>();
   const seenCity = new Set<string>();
@@ -319,6 +348,9 @@ export function searchPlaces(query: string, limit = 40): PlaceSuggestion[] {
       "CITY:US:new-york",
       "CITY:IT:rome",
       "CITY:DE:berlin",
+      "CITY:IT:milan",
+      "CITY:RU:moscow",
+      "CITY:AE:dubai",
     ];
     for (const c of preferredCities) {
       const g = getCityGroup(c);
@@ -334,6 +366,9 @@ export function searchPlaces(query: string, limit = 40): PlaceSuggestion[] {
       "ESB",
       "ADB",
       "AYT",
+      "JFK",
+      "EWR",
+      "LGA",
       "LHR",
       "CDG",
       "FRA",
@@ -349,42 +384,56 @@ export function searchPlaces(query: string, limit = 40): PlaceSuggestion[] {
     return out.slice(0, limit);
   }
 
-  // Şehir grupları
+  type Scored = { s: PlaceSuggestion; score: number };
+  const scored: Scored[] = [];
+
+  // Şehir grupları — tüm multi-airport şehirler
   for (const g of cityGroupsList) {
-    if (
-      g.search.includes(q) ||
-      normCity(g.city).startsWith(q) ||
-      g.airports.some((a) => a.iata.toLowerCase() === q)
-    ) {
-      if (!seenCity.has(g.code)) {
-        seenCity.add(g.code);
-        out.push({ kind: "city", group: g });
-      }
-    }
-    if (out.length >= limit) return out.slice(0, limit);
+    const cityN = normCity(g.city);
+    const iataHit = g.airports.some((a) => a.iata.toLowerCase() === q);
+    const starts = cityN.startsWith(q);
+    const includes = cityN.includes(q) || g.search.includes(q);
+    if (!starts && !includes && !iataHit) continue;
+    if (seenCity.has(g.code)) continue;
+    seenCity.add(g.code);
+    let score = 0;
+    if (cityN === q) score = 0;
+    else if (starts) score = 1;
+    else if (iataHit) score = 2;
+    else score = 3;
+    // TR / büyük şehirleri biraz öne
+    if (g.country === "TR") score -= 0.2;
+    if (["US", "GB", "FR", "DE", "IT"].includes(g.country) && starts) score -= 0.1;
+    scored.push({ s: { kind: "city", group: g }, score });
   }
 
   // Havalimanları
   for (const a of AIRPORTS) {
     const cityN = normCity(a.city);
+    const apN = foldText(a.airport);
     const match =
       a.iata.toLowerCase() === q ||
       a.iata.toLowerCase().startsWith(q) ||
       cityN.startsWith(q) ||
       cityN.includes(q) ||
-      a.search.includes(q) ||
-      a.airport.toLowerCase().includes(q);
+      apN.includes(q) ||
+      foldText(a.search).includes(q);
     if (!match || seenAirport.has(a.iata)) continue;
     seenAirport.add(a.iata);
-    out.push({ kind: "airport", airport: a });
-    if (out.length >= limit) break;
+    let score = 10;
+    if (a.iata.toLowerCase() === q) score = 4;
+    else if (cityN === q) score = 5;
+    else if (cityN.startsWith(q)) score = 6;
+    else score = 8;
+    scored.push({ s: { kind: "airport", airport: a }, score });
   }
 
-  // Şehir satırlarını üste al (aynı sorgu için)
-  out.sort((x, y) => {
-    if (x.kind === y.kind) return 0;
-    return x.kind === "city" ? -1 : 1;
+  scored.sort((a, b) => {
+    if (a.score !== b.score) return a.score - b.score;
+    // Aynı skorda şehir satırı önce
+    if (a.s.kind !== b.s.kind) return a.s.kind === "city" ? -1 : 1;
+    return 0;
   });
 
-  return out.slice(0, limit);
+  return scored.slice(0, limit).map((x) => x.s);
 }

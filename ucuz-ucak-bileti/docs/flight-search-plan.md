@@ -45,6 +45,7 @@ TK, PC, VF, XQ, XC, W6, FR, A3, LH, LX, OS, AF, KL, BA, QR, EK, EY, EW, U2, LO
 
 - Havalimanı: OurAirports + `AirportPicker` (`onMouseDown` seçim düzeltmesi)  
 - **Çoklu havalimanı şehir:** örn. İstanbul → “İstanbul (tüm havalimanları)” (`CITY:TR:istanbul` = IST+SAW). Skyscanner `ista` / Kayak `IST,SAW`; multi desteklemeyen kaynaklarda üye IATA’lara genişletme veya birincil kod.  
+- **Arama katlama:** sorgu `foldText` (Türkçe İ/ı); `toLowerCase` yetmez — aksi halde “İstanbul” CITY satırını kaçırır. NYC→New York alias.  
 - Konaklama: 2–21 gün çoklu  
 - Aktarmasız toggle + Aktarma sütunu  
 - Sıralama: fiyat ucuz→pahalı (fiyat yoksa kaynak önceliği); fiyatsız sonda  
