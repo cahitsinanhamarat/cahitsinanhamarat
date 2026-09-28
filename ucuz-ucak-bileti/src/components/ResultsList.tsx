@@ -1,4 +1,9 @@
-import type { FlightOffer, SourceStatus } from "@/lib/types";
+import type {
+  AdapterSummary,
+  FlightOffer,
+  KeyPresence,
+  SourceStatus,
+} from "@/lib/types";
 import { FlightCard } from "./FlightCard";
 
 type Props = {
@@ -7,6 +12,8 @@ type Props = {
   message?: string;
   demo: boolean;
   datePairsSearched: number;
+  keys?: KeyPresence;
+  adapters?: AdapterSummary[];
 };
 
 export function ResultsList({
@@ -15,9 +22,13 @@ export function ResultsList({
   message,
   demo,
   datePairsSearched,
+  keys,
+  adapters,
 }: Props) {
   const priced = offers.filter((o) => o.price != null);
   const linkOuts = offers.filter((o) => o.price == null);
+  const livePriced = priced.filter((o) => o.mode === "live");
+  const otherPriced = priced.filter((o) => o.mode !== "live");
   const cheapest = priced[0];
   const alternatives = priced.slice(1);
 
@@ -35,9 +46,18 @@ export function ResultsList({
             Sonuçlar
           </h2>
           <p className="text-sm text-[var(--muted)]">
-            {datePairsSearched} tarih çifti tarandı ·{" "}
-            {demo ? "Demo fiyatlar" : "Canlı + link-out karışık"} · En ucuz üstte
+            {datePairsSearched} tarih çifti ·{" "}
+            {demo
+              ? "Demo fiyatlar"
+              : `${livePriced.length} canlı + ${otherPriced.length} diğer fiyatlı`}{" "}
+            · Sıra: canlı → en ucuz → Skyscanner önceliği
           </p>
+          {keys && (
+            <p className="mt-1 text-xs text-[var(--muted)]">
+              Anahtarlar — Skyscanner: {keys.skyscanner ? "✓" : "✗"} · Kiwi:{" "}
+              {keys.kiwi ? "✓" : "✗"} · Amadeus: {keys.amadeus ? "✓" : "✗"}
+            </p>
+          )}
         </div>
       </div>
 
@@ -81,6 +101,22 @@ export function ResultsList({
         </p>
       )}
 
+      {adapters && adapters.length > 0 && (
+        <details className="mb-6 rounded-xl border border-[var(--line)] bg-white/60 p-4">
+          <summary className="cursor-pointer font-semibold text-[var(--sea-deep)]">
+            Canlı adaptör özeti
+          </summary>
+          <ul className="mt-3 space-y-2 text-sm">
+            {adapters.map((a) => (
+              <li key={a.source}>
+                <span className="font-medium">{a.source}</span>: {a.count} sonuç
+                {a.error ? ` — ${a.error}` : a.ok ? " — OK" : ""}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+
       <SourceLegend sources={sources} />
     </section>
   );
@@ -105,7 +141,13 @@ function SourceLegend({ sources }: { sources: SourceStatus[] }) {
               <p className="font-medium">
                 {s.name}{" "}
                 <span className="text-xs font-normal text-[var(--muted)]">
-                  ({s.mode === "live" ? "canlı" : s.mode === "demo" ? "demo" : "link-out"})
+                  (
+                  {s.mode === "live"
+                    ? "canlı"
+                    : s.mode === "demo"
+                      ? "demo"
+                      : "link-out"}
+                  )
                 </span>
               </p>
               <p className="text-xs text-[var(--muted)]">{s.note}</p>

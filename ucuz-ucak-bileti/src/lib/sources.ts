@@ -175,12 +175,21 @@ export function hasKiwiKey(): boolean {
 
 export function hasAmadeusKeys(): boolean {
   return Boolean(
-    process.env.AMADEUS_CLIENT_ID && process.env.AMADEUS_CLIENT_SECRET
+    process.env.AMADEUS_CLIENT_ID?.trim() &&
+      process.env.AMADEUS_CLIENT_SECRET?.trim()
   );
 }
 
 export function forceDemo(): boolean {
   return process.env.DEMO_MODE === "force";
+}
+
+export function getKeyPresence() {
+  return {
+    skyscanner: hasSkyscannerKey(),
+    kiwi: hasKiwiKey(),
+    amadeus: hasAmadeusKeys(),
+  };
 }
 
 export function resolveSourceMode(sourceId: string): OfferMode {

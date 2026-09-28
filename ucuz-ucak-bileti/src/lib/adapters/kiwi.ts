@@ -1,6 +1,8 @@
 import type { DatePair } from "../dates";
 import { buildDeepLink } from "../deep-links";
+import { airlineName } from "../airlines";
 import type { FlightOffer } from "../types";
+import type { AdapterResult } from "./types";
 
 const SEARCH_URL = "https://api.tequila.kiwi.com/v2/search";
 
@@ -23,12 +25,15 @@ export async function searchKiwi(
   origin: string,
   destination: string,
   pairs: DatePair[]
-): Promise<FlightOffer[]> {
-  const key = process.env.KIWI_API_KEY;
-  if (!key) return [];
+): Promise<AdapterResult> {
+  const key = process.env.KIWI_API_KEY?.trim();
+  if (!key) {
+    return { source: "kiwi", offers: [], ok: false, error: "KIWI_API_KEY eksik" };
+  }
 
   const limited = pairs.slice(0, 6);
   const results: FlightOffer[] = [];
+  const errors: string[] = [];
 
   await Promise.all(
     limited.map(async (pair) => {
@@ -44,12 +49,17 @@ export async function searchKiwi(
         url.searchParams.set("curr", "TRY");
         url.searchParams.set("limit", "5");
         url.searchParams.set("sort", "price");
+        url.searchParams.set("locale", "tr");
 
         const res = await fetch(url, {
           headers: { apikey: key },
-          signal: AbortSignal.timeout(12_000),
+          signal: AbortSignal.timeout(14_000),
         });
-        if (!res.ok) return;
+        if (!res.ok) {
+          const body = await res.text().catch(() => "");
+          errors.push(`${pair.departure}: HTTP ${res.status} ${body.slice(0, 100)}`);
+          return;
+        }
         const json = (await res.json()) as { data?: KiwiItinerary[] };
 
         for (const item of json.data ?? []) {
@@ -67,7 +77,7 @@ export async function searchKiwi(
             sourcePriority: 9,
             price: Math.round(item.price),
             currency: "TRY",
-            airline: item.airlines?.[0] ?? outFirst.airline,
+            airline: airlineName(item.airlines?.[0] ?? outFirst.airline),
             outbound: {
               departure: outFirst.local_departure,
               arrival: outLast.local_arrival,
@@ -87,13 +97,21 @@ export async function searchKiwi(
             mode: "live",
           });
         }
-      } catch {
-        // ignore partial failures
+      } catch (e) {
+        errors.push(
+          `${pair.departure}: ${e instanceof Error ? e.message : "hata"}`
+        );
       }
     })
   );
 
-  return results;
+  return {
+    source: "kiwi",
+    offers: results,
+    ok: results.length > 0 || errors.length === 0,
+    error: errors.length ? errors.slice(0, 3).join("; ") : undefined,
+    meta: { pairsTried: limited.length },
+  };
 }
 
 function formatKiwiDate(ymd: string): string {

@@ -37,10 +37,26 @@ export type SourceStatus = {
   note: string;
 };
 
+export type KeyPresence = {
+  skyscanner: boolean;
+  kiwi: boolean;
+  amadeus: boolean;
+};
+
+export type AdapterSummary = {
+  source: string;
+  ok: boolean;
+  count: number;
+  error?: string;
+  meta?: Record<string, unknown>;
+};
+
 export type SearchResponse = {
   offers: FlightOffer[];
   sources: SourceStatus[];
   datePairsSearched: number;
   demo: boolean;
+  keys: KeyPresence;
+  adapters: AdapterSummary[];
   message?: string;
 };

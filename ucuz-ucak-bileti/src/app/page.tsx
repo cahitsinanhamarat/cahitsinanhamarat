@@ -1,32 +1,37 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { SearchForm, type SearchFormValues } from "@/components/SearchForm";
 import { ResultsList } from "@/components/ResultsList";
-import type { SearchResponse } from "@/lib/types";
+import type { KeyPresence, SearchResponse } from "@/lib/types";
 
-function defaultDates() {
-  const start = new Date();
-  start.setDate(start.getDate() + 21);
-  const end = new Date(start);
-  end.setDate(end.getDate() + 60);
-  const toYmd = (d: Date) => d.toISOString().slice(0, 10);
-  return { startDate: toYmd(start), endDate: toYmd(end) };
-}
+type StatusPayload = {
+  demo: boolean;
+  keys: KeyPresence;
+  howTo: string;
+  signup: Record<string, string>;
+};
 
 export default function HomePage() {
-  const defaults = useMemo(() => defaultDates(), []);
   const [values, setValues] = useState<SearchFormValues>({
     origin: "IST",
     destination: "AMS",
-    startDate: defaults.startDate,
-    endDate: defaults.endDate,
+    startDate: "2026-04-01",
+    endDate: "2026-06-01",
     stayDays: [3, 4],
   });
   const [result, setResult] = useState<SearchResponse | null>(null);
+  const [status, setStatus] = useState<StatusPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/status")
+      .then((r) => r.json())
+      .then((d) => setStatus(d as StatusPayload))
+      .catch(() => setStatus(null));
+  }, []);
 
   async function runSearch() {
     setLoading(true);
@@ -76,6 +81,28 @@ export default function HomePage() {
             öncelikli 19 kaynaktan tarayın; en ucuzu üstte görün.
           </p>
 
+          {status && (
+            <div className="anim-rise w-full max-w-3xl rounded-xl border border-[var(--line)] bg-white/55 px-4 py-3 text-sm text-[var(--muted)] backdrop-blur">
+              <p className="font-semibold text-[var(--sea-deep)]">
+                API durumu:{" "}
+                {status.demo
+                  ? "Demo (canlı anahtar yok)"
+                  : "Canlı anahtar(lar) yüklü"}
+              </p>
+              <p className="mt-1">
+                Skyscanner: {status.keys.skyscanner ? "anahtar var" : "yok"} ·
+                Kiwi: {status.keys.kiwi ? "anahtar var" : "yok"} · Amadeus:{" "}
+                {status.keys.amadeus ? "anahtar var" : "yok"}
+              </p>
+              {status.demo && (
+                <p className="mt-1 text-xs">
+                  Canlı fiyat için `.env.local` içine anahtar ekleyin —{" "}
+                  {status.howTo}
+                </p>
+              )}
+            </div>
+          )}
+
           <SearchForm
             values={values}
             onChange={setValues}
@@ -104,14 +131,16 @@ export default function HomePage() {
           message={result.message}
           demo={result.demo}
           datePairsSearched={result.datePairsSearched}
+          keys={result.keys}
+          adapters={result.adapters}
         />
       )}
 
       {!result && !loading && (
         <section className="mx-auto max-w-4xl px-4 pb-16 pt-2 text-sm text-[var(--muted)]">
           <p>
-            Varsayılan kalkış: İstanbul (IST). Anahtar yoksa demo fiyatlarla
-            arayüz denenir; satın alma linkleri gerçek kaynak sitelerine gider.
+            Örnek: İstanbul → Amsterdam, 1 Nis – 1 Haz, 3 ve 4 gün. Anahtar
+            yoksa demo fiyatlar; satın alma linkleri gerçek sitelere gider.
           </p>
         </section>
       )}

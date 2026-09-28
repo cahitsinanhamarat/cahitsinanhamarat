@@ -1,43 +1,80 @@
 import type { DatePair } from "../dates";
 import { buildDeepLink } from "../deep-links";
+import { airlineName, toAmadeusAirport } from "../airlines";
 import type { FlightOffer } from "../types";
+import type { AdapterResult } from "./types";
 
-const TOKEN_URL = "https://api.amadeus.com/v1/security/oauth2/token";
-const SEARCH_URL = "https://api.amadeus.com/v2/shopping/flight-offers";
+function amadeusHosts(): { token: string; search: string } {
+  // test = self-service sandbox (ücretsiz kayıt sonrası); production = canlı
+  const env = (process.env.AMADEUS_ENV || "test").toLowerCase();
+  if (env === "production" || env === "prod") {
+    return {
+      token: "https://api.amadeus.com/v1/security/oauth2/token",
+      search: "https://api.amadeus.com/v2/shopping/flight-offers",
+    };
+  }
+  return {
+    token: "https://test.api.amadeus.com/v1/security/oauth2/token",
+    search: "https://test.api.amadeus.com/v2/shopping/flight-offers",
+  };
+}
 
-let cachedToken: { value: string; expiresAt: number } | null = null;
+let cachedToken: { value: string; expiresAt: number; env: string } | null =
+  null;
 
-async function getToken(): Promise<string | null> {
-  const id = process.env.AMADEUS_CLIENT_ID;
-  const secret = process.env.AMADEUS_CLIENT_SECRET;
-  if (!id || !secret) return null;
-
-  if (cachedToken && Date.now() < cachedToken.expiresAt - 60_000) {
-    return cachedToken.value;
+async function getToken(): Promise<{ token: string | null; error?: string }> {
+  const id = process.env.AMADEUS_CLIENT_ID?.trim();
+  const secret = process.env.AMADEUS_CLIENT_SECRET?.trim();
+  if (!id || !secret) {
+    return { token: null, error: "AMADEUS_CLIENT_ID/SECRET eksik" };
   }
 
+  const env = (process.env.AMADEUS_ENV || "test").toLowerCase();
+  if (
+    cachedToken &&
+    cachedToken.env === env &&
+    Date.now() < cachedToken.expiresAt - 60_000
+  ) {
+    return { token: cachedToken.value };
+  }
+
+  const { token: tokenUrl } = amadeusHosts();
   const body = new URLSearchParams({
     grant_type: "client_credentials",
     client_id: id,
     client_secret: secret,
   });
 
-  const res = await fetch(TOKEN_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body,
-    signal: AbortSignal.timeout(12_000),
-  });
-  if (!res.ok) return null;
-  const data = (await res.json()) as {
-    access_token: string;
-    expires_in: number;
-  };
-  cachedToken = {
-    value: data.access_token,
-    expiresAt: Date.now() + data.expires_in * 1000,
-  };
-  return cachedToken.value;
+  try {
+    const res = await fetch(tokenUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body,
+      signal: AbortSignal.timeout(12_000),
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      return {
+        token: null,
+        error: `Amadeus token ${res.status}: ${text.slice(0, 180)}`,
+      };
+    }
+    const data = (await res.json()) as {
+      access_token: string;
+      expires_in: number;
+    };
+    cachedToken = {
+      value: data.access_token,
+      expiresAt: Date.now() + data.expires_in * 1000,
+      env,
+    };
+    return { token: cachedToken.value };
+  } catch (e) {
+    return {
+      token: null,
+      error: e instanceof Error ? e.message : "Amadeus token hatası",
+    };
+  }
 }
 
 type AmadeusOffer = {
@@ -59,20 +96,25 @@ export async function searchAmadeus(
   origin: string,
   destination: string,
   pairs: DatePair[]
-): Promise<FlightOffer[]> {
-  const token = await getToken();
-  if (!token) return [];
+): Promise<AdapterResult> {
+  const { token, error } = await getToken();
+  if (!token) {
+    return { source: "amadeus", offers: [], ok: false, error: error || "token yok" };
+  }
 
-  // Rate limit: en fazla 6 tarih çifti
+  const from = toAmadeusAirport(origin);
+  const to = toAmadeusAirport(destination);
   const limited = pairs.slice(0, 6);
   const results: FlightOffer[] = [];
+  const errors: string[] = [];
+  const { search: searchUrl } = amadeusHosts();
 
   await Promise.all(
     limited.map(async (pair) => {
       try {
-        const url = new URL(SEARCH_URL);
-        url.searchParams.set("originLocationCode", origin.slice(0, 3));
-        url.searchParams.set("destinationLocationCode", destination.slice(0, 3));
+        const url = new URL(searchUrl);
+        url.searchParams.set("originLocationCode", from);
+        url.searchParams.set("destinationLocationCode", to);
         url.searchParams.set("departureDate", pair.departure);
         url.searchParams.set("returnDate", pair.returnDate);
         url.searchParams.set("adults", "1");
@@ -81,30 +123,31 @@ export async function searchAmadeus(
 
         const res = await fetch(url, {
           headers: { Authorization: `Bearer ${token}` },
-          signal: AbortSignal.timeout(12_000),
+          signal: AbortSignal.timeout(14_000),
         });
-        if (!res.ok) return;
+        if (!res.ok) {
+          errors.push(`${pair.departure}: HTTP ${res.status}`);
+          return;
+        }
         const json = (await res.json()) as { data?: AmadeusOffer[] };
         for (const offer of json.data ?? []) {
-          const outSeg = offer.itineraries[0]?.segments?.[0];
+          const outSegs = offer.itineraries[0]?.segments;
           const inSegs = offer.itineraries[1]?.segments;
-          const inSeg = inSegs?.[0];
-          const inLast = inSegs?.[inSegs.length - 1];
-          if (!outSeg || !inSeg || !inLast) continue;
-
-          const outLast =
-            offer.itineraries[0].segments[
-              offer.itineraries[0].segments.length - 1
-            ];
+          if (!outSegs?.length || !inSegs?.length) continue;
+          const outSeg = outSegs[0];
+          const outLast = outSegs[outSegs.length - 1];
+          const inSeg = inSegs[0];
+          const inLast = inSegs[inSegs.length - 1];
 
           results.push({
             id: `amadeus-${offer.id}-${pair.departure}`,
             source: "Amadeus (meta)",
-            sourcePriority: 50, // onaylı listeden sonra, ama canlı fiyat
+            sourcePriority: 50,
             price: Math.round(parseFloat(offer.price.total)),
             currency: "TRY",
-            airline:
-              offer.validatingAirlineCodes?.[0] ?? outSeg.carrierCode ?? "—",
+            airline: airlineName(
+              offer.validatingAirlineCodes?.[0] ?? outSeg.carrierCode
+            ),
             outbound: {
               departure: outSeg.departure.at,
               arrival: outLast.arrival.at,
@@ -126,11 +169,19 @@ export async function searchAmadeus(
             mode: "live",
           });
         }
-      } catch {
-        // kısmi hata — diğer çiftler devam
+      } catch (e) {
+        errors.push(
+          `${pair.departure}: ${e instanceof Error ? e.message : "hata"}`
+        );
       }
     })
   );
 
-  return results;
+  return {
+    source: "amadeus",
+    offers: results,
+    ok: results.length > 0 || errors.length === 0,
+    error: errors.length ? errors.slice(0, 3).join("; ") : undefined,
+    meta: { from, to, pairsTried: limited.length, env: process.env.AMADEUS_ENV || "test" },
+  };
 }

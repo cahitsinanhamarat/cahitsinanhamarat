@@ -69,6 +69,18 @@ npm run search -- --from IST --to AMS --start 2026-04-01 --end 2026-06-01 --stay
 2. Kiwi.com (Tequila)  
 3. Amadeus meta (ek)
 
+## Kullanıcının vermesi gereken anahtarlar
+
+Bu VM’de / repoda **hiçbir canlı API anahtarı yok**. Sahte secret üretilmedi. Canlı fiyat için `.env.local` içine:
+
+| Kaynak | Değişkenler | Kayıt |
+|--------|-------------|-------|
+| Skyscanner (#1) | `SKYSCANNER_RAPIDAPI_KEY` (+ isteğe bağlı `SKYSCANNER_RAPIDAPI_HOST`, `SKYSCANNER_RAPIDAPI_PATH`) | RapidAPI Skyscanner provider |
+| Kiwi (#9) | `KIWI_API_KEY` | https://tequila.kiwi.com/ |
+| Amadeus meta | `AMADEUS_CLIENT_ID`, `AMADEUS_CLIENT_SECRET`, `AMADEUS_ENV=test` | https://developers.amadeus.com/ |
+
+Kontrol: `curl localhost:3000/api/status`
+
 ## API anahtarları
 
 ```bash
