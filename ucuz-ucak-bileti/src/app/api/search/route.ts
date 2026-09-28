@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runSearch } from "@/lib/adapters";
+import { normalizeStayDays } from "@/lib/stays";
 import type { SearchRequest } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -12,9 +13,7 @@ export async function POST(req: NextRequest) {
     const destination = (body.destination || "").toString();
     const startDate = (body.startDate || "").toString();
     const endDate = (body.endDate || "").toString();
-    const stayDays = Array.isArray(body.stayDays)
-      ? body.stayDays.map(Number).filter((n) => n > 0 && n < 60)
-      : [3, 4];
+    const stayDays = normalizeStayDays(body.stayDays);
 
     if (!destination || !startDate || !endDate) {
       return NextResponse.json(

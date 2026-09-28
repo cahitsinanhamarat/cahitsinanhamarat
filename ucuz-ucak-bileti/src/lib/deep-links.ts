@@ -1,6 +1,6 @@
 import type { DatePair } from "./dates";
 import { APPROVED_SOURCES } from "./sources";
-import type { FlightOffer } from "./types";
+import type { FlightOffer, SourceLink, TripOption } from "./types";
 
 export type DeepLinkParams = {
   origin: string;
@@ -12,7 +12,7 @@ function ymdCompact(ymd: string): string {
   return ymd.replace(/-/g, "");
 }
 
-/** Kaynak başına gidiş-dönüş arama deep-link’i (API yoksa link-out). */
+/** Kaynak başına gidiş-dönüş arama deep-link’i (ücretsiz yol — scraping yok). */
 export function buildDeepLink(
   sourceId: string,
   p: DeepLinkParams
@@ -67,7 +67,42 @@ export function buildDeepLink(
   }
 }
 
-/** Her onaylı kaynak için tek bir tipik tarih çiftiyle link-out teklifi. */
+/** Bir tarih çifti için 19 kaynak linki (Skyscanner #1). */
+export function buildSourceLinksForPair(
+  origin: string,
+  destination: string,
+  pair: DatePair
+): SourceLink[] {
+  return APPROVED_SOURCES.map((src) => ({
+    id: src.id,
+    name: src.name,
+    priority: src.priority,
+    url: buildDeepLink(src.id, { origin, destination, pair }),
+  }));
+}
+
+/** Ücretsiz yol: her tarih çifti = karşılaştırılabilir trip option. */
+export function buildTripOptions(
+  origin: string,
+  destination: string,
+  pairs: DatePair[]
+): TripOption[] {
+  return pairs.map((pair) => {
+    const links = buildSourceLinksForPair(origin, destination, pair);
+    return {
+      id: `trip-${pair.departure}-${pair.returnDate}-${pair.stayDays}`,
+      departure: pair.departure,
+      returnDate: pair.returnDate,
+      stayDays: pair.stayDays,
+      links,
+      primaryUrl: links[0]?.url ?? "#",
+      price: null,
+      currency: "TRY" as const,
+    };
+  });
+}
+
+/** Geriye dönük: tek çift için link-out FlightOffer listesi. */
 export function buildLinkOutOffers(
   origin: string,
   destination: string,

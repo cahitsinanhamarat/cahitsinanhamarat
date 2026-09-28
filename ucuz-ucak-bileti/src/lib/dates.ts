@@ -23,28 +23,35 @@ export type DatePair = {
   stayDays: number;
 };
 
+export type ExpandResult = {
+  pairs: DatePair[];
+  total: number;
+  sampled: boolean;
+};
+
 /**
- * Tarih aralığı + konaklama sürelerinden gidiş/dönüş çiftleri üretir.
- * Çok fazla çift olursa eşit aralıklı örnekleme ile üst sınır uygulanır.
+ * Tarih aralığı + konaklama sürelerinden gidiş/dönüş çiftleri.
+ * maxPairs aşılırsa eşit aralıklı örnekleme (UI/performans için).
  */
 export function expandDatePairs(
   startDate: string,
   endDate: string,
   stayDays: number[],
-  maxPairs = 40
-): DatePair[] {
+  maxPairs = 150
+): ExpandResult {
   const stays = [...new Set(stayDays.filter((n) => n > 0))].sort((a, b) => a - b);
-  if (stays.length === 0) return [];
+  if (stays.length === 0) {
+    return { pairs: [], total: 0, sampled: false };
+  }
 
   const start = parseYmd(startDate);
   const end = parseYmd(endDate);
-  if (end < start) return [];
+  if (end < start) return { pairs: [], total: 0, sampled: false };
 
   const all: DatePair[] = [];
   for (const stay of stays) {
     for (let t = start.getTime(); t <= end.getTime(); t += 86400000) {
-      const dep = new Date(t);
-      const depYmd = formatYmd(dep);
+      const depYmd = formatYmd(new Date(t));
       const retYmd = addDays(depYmd, stay);
       if (parseYmd(retYmd) <= end) {
         all.push({ departure: depYmd, returnDate: retYmd, stayDays: stay });
@@ -52,15 +59,22 @@ export function expandDatePairs(
     }
   }
 
-  if (all.length <= maxPairs) return all;
+  // Kronolojik + süre
+  all.sort((a, b) => {
+    if (a.departure !== b.departure) return a.departure.localeCompare(b.departure);
+    return a.stayDays - b.stayDays;
+  });
 
-  // Eşit aralıklı örnekleme — tüm aralık + süreleri temsil etsin
+  if (all.length <= maxPairs) {
+    return { pairs: all, total: all.length, sampled: false };
+  }
+
   const sampled: DatePair[] = [];
   const step = all.length / maxPairs;
   for (let i = 0; i < maxPairs; i++) {
     sampled.push(all[Math.floor(i * step)]);
   }
-  return sampled;
+  return { pairs: sampled, total: all.length, sampled: true };
 }
 
 export function formatTrDate(ymd: string): string {
@@ -76,7 +90,6 @@ export function formatTrDate(ymd: string): string {
 export function formatTrDateTime(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) {
-    // date-only
     if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) return formatTrDate(iso);
     return iso;
   }

@@ -1,18 +1,17 @@
 import { searchAmadeus } from "./amadeus";
 import { searchKiwi } from "./kiwi";
-import { buildDemoOffers } from "./mock";
 import { searchSkyscanner } from "./skyscanner";
 import type { AdapterResult } from "./types";
-import { expandDatePairs, type DatePair } from "../dates";
-import { buildLinkOutOffers } from "../deep-links";
+import { expandDatePairs } from "../dates";
+import { buildTripOptions } from "../deep-links";
 import {
   buildSourceStatuses,
-  forceDemo,
   getKeyPresence,
   hasAmadeusKeys,
   hasKiwiKey,
   hasSkyscannerKey,
 } from "../sources";
+import { normalizeStayDays } from "../stays";
 import type { FlightOffer, SearchRequest, SearchResponse } from "../types";
 
 const MODE_RANK: Record<FlightOffer["mode"], number> = {
@@ -21,11 +20,9 @@ const MODE_RANK: Record<FlightOffer["mode"], number> = {
   "link-out": 2,
 };
 
-/** Canlı fiyatlar önce; sonra ucuzdan pahalıya; eşitlikte Skyscanner önceliği. */
 export function sortOffers(a: FlightOffer, b: FlightOffer): number {
   const modeDiff = MODE_RANK[a.mode] - MODE_RANK[b.mode];
   if (modeDiff !== 0) return modeDiff;
-
   const aPriced = a.price != null;
   const bPriced = b.price != null;
   if (aPriced && !bPriced) return -1;
@@ -33,115 +30,130 @@ export function sortOffers(a: FlightOffer, b: FlightOffer): number {
   if (aPriced && bPriced && a.price !== b.price) {
     return (a.price as number) - (b.price as number);
   }
-  // Eşit fiyat / ikisi de null: Skyscanner (#1) öne
   return a.sourcePriority - b.sourcePriority;
 }
 
-function pickRepresentativePair(pairs: DatePair[]): DatePair {
-  return pairs[Math.floor(pairs.length / 2)] ?? pairs[0];
-}
-
-function anyLiveKey(): boolean {
+function anyOptionalLiveKey(): boolean {
   return hasSkyscannerKey() || hasKiwiKey() || hasAmadeusKeys();
 }
 
+/**
+ * Ücretsiz yol (varsayılan): tüm geçerli tarih çiftleri + 19 kaynak deep-link.
+ * Ücretli API anahtarı yok / istenmiyor — scraping yok.
+ * Anahtar varsa isteğe bağlı canlı fiyatlar eklenir (zorunlu değil).
+ */
 export async function runSearch(
   req: SearchRequest
 ): Promise<SearchResponse> {
   const origin = req.origin.toUpperCase().trim();
   const destination = req.destination.toUpperCase().trim();
-  const stayDays = req.stayDays.length ? req.stayDays : [3, 4];
+  const stayDays = normalizeStayDays(req.stayDays);
 
-  const pairs = expandDatePairs(req.startDate, req.endDate, stayDays, 40);
+  const { pairs, total, sampled } = expandDatePairs(
+    req.startDate,
+    req.endDate,
+    stayDays,
+    150
+  );
+
+  const sources = buildSourceStatuses(false).map((s) => ({
+    ...s,
+    mode: "link-out" as const,
+    note:
+      s.priority === 1
+        ? "Ücretsiz deep-link (Skyscanner TR) — birincil satın alma yolu"
+        : s.note.startsWith("Resmi") || s.note.includes("deep-link")
+          ? s.note
+          : `${s.name} deep-link (ücretsiz yol)`,
+  }));
 
   if (!pairs.length) {
     return {
+      tripOptions: [],
+      tripOptionsTotal: 0,
+      tripOptionsSampled: false,
       offers: [],
-      sources: buildSourceStatuses(false),
+      sources,
       datePairsSearched: 0,
+      freePath: true,
       demo: false,
       keys: getKeyPresence(),
       adapters: [],
       message:
-        "Geçerli tarih çifti bulunamadı. Tarih aralığını veya konaklama süresini kontrol edin.",
+        "Geçerli tarih çifti bulunamadı. Tarih aralığını veya konaklama süresini (2–21 gün) kontrol edin.",
     };
   }
 
-  const demoForced = forceDemo();
-  const useDemoFallback = demoForced || !anyLiveKey();
+  const tripOptions = buildTripOptions(origin, destination, pairs);
 
-  if (useDemoFallback) {
-    const demoOffers = buildDemoOffers(origin, destination, pairs);
-    const linkOuts = buildLinkOutOffers(
-      origin,
-      destination,
-      pickRepresentativePair(pairs),
-      "demo"
-    ).filter(
-      (o) =>
-        !["Skyscanner", "Kiwi.com", "Enuygun", "Kayak"].includes(o.source)
+  // İsteğe bağlı: kullanıcı ücretli anahtar eklediyse canlı fiyat dene (zorunlu değil)
+  let offers: FlightOffer[] = [];
+  let adapters: AdapterResult[] = [];
+  let freePath = true;
+  let message =
+    `Ücretsiz yol: ${total} tarih çifti üretildi` +
+    (sampled ? ` (gösterilen ${pairs.length}, eşit aralıklı örnek)` : "") +
+    `. Her çift için 19 kaynak linki — Skyscanner birinci. Gerçek fiyat kaynak sitesinde; ücretli API yok.`;
+
+  if (anyOptionalLiveKey()) {
+    freePath = false;
+    const [sky, kiwi, amadeus] = await Promise.all([
+      searchSkyscanner(origin, destination, pairs.slice(0, 6)),
+      searchKiwi(origin, destination, pairs.slice(0, 6)),
+      searchAmadeus(origin, destination, pairs.slice(0, 6)),
+    ]);
+    adapters = [sky, kiwi, amadeus];
+    offers = [...sky.offers, ...kiwi.offers, ...amadeus.offers].sort(
+      sortOffers
     );
 
-    const offers = [...demoOffers, ...linkOuts].sort(sortOffers);
-    return {
-      offers,
-      sources: buildSourceStatuses(true),
-      datePairsSearched: pairs.length,
-      demo: true,
-      keys: getKeyPresence(),
-      adapters: [],
-      message: demoForced
-        ? "DEMO_MODE=force — örnek fiyatlar. Canlı API için DEMO_MODE’u kaldırıp anahtar ekleyin."
-        : "Demo modu: API anahtarı yok. Örnek fiyatlar + deep-link’ler. Canlı fiyat için AMADEUS_*, KIWI_API_KEY veya SKYSCANNER_RAPIDAPI_KEY ekleyin (.env.local).",
-    };
-  }
+    // Canlı fiyatları trip option’lara bağla (eşleşen tarih)
+    const priceByKey = new Map<string, number>();
+    for (const o of offers) {
+      if (o.price == null) continue;
+      const dep = o.outbound.departure.slice(0, 10);
+      const ret = o.inbound.departure.slice(0, 10);
+      const key = `${dep}|${ret}|${o.stayDays}`;
+      const prev = priceByKey.get(key);
+      if (prev == null || o.price < prev) priceByKey.set(key, o.price);
+    }
+    for (const t of tripOptions) {
+      const p = priceByKey.get(
+        `${t.departure}|${t.returnDate}|${t.stayDays}`
+      );
+      if (p != null) t.price = p;
+    }
+    tripOptions.sort((a, b) => {
+      if (a.price != null && b.price != null && a.price !== b.price) {
+        return a.price - b.price;
+      }
+      if (a.price != null && b.price == null) return -1;
+      if (a.price == null && b.price != null) return 1;
+      return a.departure.localeCompare(b.departure);
+    });
 
-  const [sky, kiwi, amadeus] = await Promise.all([
-    searchSkyscanner(origin, destination, pairs),
-    searchKiwi(origin, destination, pairs),
-    searchAmadeus(origin, destination, pairs),
-  ]);
-
-  const adapters: AdapterResult[] = [sky, kiwi, amadeus];
-  const liveOffers = [...sky.offers, ...kiwi.offers, ...amadeus.offers];
-
-  const linkOuts = buildLinkOutOffers(
-    origin,
-    destination,
-    pickRepresentativePair(pairs),
-    "link-out"
-  ).filter((o) => {
-    if (o.source === "Skyscanner" && sky.offers.length) return false;
-    if (o.source === "Kiwi.com" && kiwi.offers.length) return false;
-    return true;
-  });
-
-  const offers = [...liveOffers, ...linkOuts].sort(sortOffers);
-
-  const liveCount = liveOffers.filter((o) => o.price != null).length;
-  const parts: string[] = [];
-  if (sky.offers.length) parts.push(`Skyscanner ${sky.offers.length}`);
-  if (kiwi.offers.length) parts.push(`Kiwi ${kiwi.offers.length}`);
-  if (amadeus.offers.length) parts.push(`Amadeus ${amadeus.offers.length}`);
-
-  const failNotes = adapters
-    .filter((a) => a.error && !a.offers.length)
-    .map((a) => `${a.source}: ${a.error}`)
-    .slice(0, 3);
-
-  let message: string | undefined;
-  if (liveCount) {
-    message = `Canlı sonuçlar: ${parts.join(", ")}.${
-      failNotes.length ? ` Uyarılar: ${failNotes.join(" | ")}` : ""
-    }`;
+    message =
+      offers.length > 0
+        ? `Canlı fiyat sinyali bulundu (${offers.length}); en ucuz tarih çiftleri üstte. Diğerleri deep-link.`
+        : message + " (İsteğe bağlı API anahtarları yanıt vermedi — deep-link devam.)";
   } else {
-    message = `Canlı API yanıt vermedi (${failNotes.join(" | ") || "boş"}). Onaylı kaynaklara deep-link listeleniyor.`;
+    // Fiyatsız: kronolojik sıra (zaten expand sıralı)
+    tripOptions.sort((a, b) => {
+      if (a.departure !== b.departure) {
+        return a.departure.localeCompare(b.departure);
+      }
+      return a.stayDays - b.stayDays;
+    });
   }
 
   return {
+    tripOptions,
+    tripOptionsTotal: total,
+    tripOptionsSampled: sampled,
     offers,
-    sources: buildSourceStatuses(false),
+    sources,
     datePairsSearched: pairs.length,
+    freePath,
     demo: false,
     keys: getKeyPresence(),
     adapters: adapters.map((a) => ({

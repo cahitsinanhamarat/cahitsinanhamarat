@@ -1,6 +1,7 @@
 "use client";
 
 import { CITIES } from "@/lib/cities";
+import { DEFAULT_STAY_DAYS, STAY_OPTIONS } from "@/lib/stays";
 
 export type SearchFormValues = {
   origin: string;
@@ -10,7 +11,7 @@ export type SearchFormValues = {
   stayDays: number[];
 };
 
-const STAY_OPTIONS = [2, 3, 4, 5, 7, 10, 14];
+export { DEFAULT_STAY_DAYS };
 
 type Props = {
   values: SearchFormValues;
@@ -26,6 +27,10 @@ export function SearchForm({ values, onChange, onSubmit, loading }: Props) {
       ? values.stayDays.filter((d) => d !== day)
       : [...values.stayDays, day].sort((a, b) => a - b);
     onChange({ ...values, stayDays });
+  }
+
+  function selectPreset(days: number[]) {
+    onChange({ ...values, stayDays: [...days] });
   }
 
   return (
@@ -100,9 +105,39 @@ export function SearchForm({ values, onChange, onSubmit, loading }: Props) {
 
       <fieldset className="mt-4">
         <legend className="mb-2 text-sm font-semibold text-[var(--sea-deep)]">
-          Konaklama süresi (çoklu seçim)
+          Konaklama süresi — 2…21 gün (çoklu seçim)
         </legend>
-        <div className="flex flex-wrap gap-2">
+        <div className="mb-2 flex flex-wrap gap-2 text-xs">
+          <button
+            type="button"
+            className="rounded border border-[var(--line)] px-2 py-1 text-[var(--muted)] hover:border-[var(--sea)]"
+            onClick={() => selectPreset([3, 4])}
+          >
+            3+4 gün
+          </button>
+          <button
+            type="button"
+            className="rounded border border-[var(--line)] px-2 py-1 text-[var(--muted)] hover:border-[var(--sea)]"
+            onClick={() => selectPreset([7])}
+          >
+            1 hafta
+          </button>
+          <button
+            type="button"
+            className="rounded border border-[var(--line)] px-2 py-1 text-[var(--muted)] hover:border-[var(--sea)]"
+            onClick={() => selectPreset([...STAY_OPTIONS])}
+          >
+            Tümü (2–21)
+          </button>
+          <button
+            type="button"
+            className="rounded border border-[var(--line)] px-2 py-1 text-[var(--muted)] hover:border-[var(--sea)]"
+            onClick={() => selectPreset([])}
+          >
+            Temizle
+          </button>
+        </div>
+        <div className="flex max-h-40 flex-wrap gap-1.5 overflow-y-auto sm:max-h-none">
           {STAY_OPTIONS.map((day) => {
             const active = values.stayDays.includes(day);
             return (
@@ -111,17 +146,23 @@ export function SearchForm({ values, onChange, onSubmit, loading }: Props) {
                 type="button"
                 onClick={() => toggleStay(day)}
                 aria-pressed={active}
-                className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
+                className={`min-w-[2.75rem] rounded-lg px-2.5 py-1.5 text-sm font-medium transition ${
                   active
                     ? "bg-[var(--sea-deep)] text-white"
                     : "border border-[var(--line)] bg-white text-[var(--muted)] hover:border-[var(--sea)]"
                 }`}
               >
-                {day} gün
+                {day}
               </button>
             );
           })}
         </div>
+        <p className="mt-2 text-xs text-[var(--muted)]">
+          Seçili:{" "}
+          {values.stayDays.length
+            ? values.stayDays.map((d) => `${d}g`).join(", ")
+            : "yok — en az bir süre seçin"}
+        </p>
       </fieldset>
 
       <button
@@ -129,7 +170,7 @@ export function SearchForm({ values, onChange, onSubmit, loading }: Props) {
         disabled={loading || values.stayDays.length === 0}
         className="mt-5 w-full rounded-xl bg-[var(--accent)] px-5 py-3.5 text-base font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:min-w-[200px]"
       >
-        {loading ? "Aranıyor…" : "Ucuz uçuş bul"}
+        {loading ? "Tarihler taranıyor…" : "Tarihleri tara & karşılaştır"}
       </button>
     </form>
   );
