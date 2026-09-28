@@ -51,7 +51,17 @@ type FlightOffer = {
 };
 ```
 
-Sıralama: önce `price != null` artan; eşitlikte `sourcePriority` (Skyscanner öncelikli); link-out’lar canlı fiyatların altında, kendi içinde önceliğe göre.
+Sıralama: (1) `mode`: live → demo → link-out; (2) fiyat artan (null en sonda); (3) eşitlikte `sourcePriority` (Skyscanner = 1).
+
+### Canlı adaptör durumu (VM / bu koşu)
+
+| Adaptör | Env vars | Bu ortamda | Not |
+|---------|----------|------------|-----|
+| Skyscanner #1 | `SKYSCANNER_RAPIDAPI_KEY`, `SKYSCANNER_RAPIDAPI_HOST?`, `SKYSCANNER_RAPIDAPI_PATH?` | **Anahtar yok** → link-out / demo | RapidAPI aboneliği kullanıcı gerektirir |
+| Kiwi #9 | `KIWI_API_KEY` | **Anahtar yok** → link-out / demo | Tequila hesabı kullanıcı gerektirir |
+| Amadeus meta | `AMADEUS_CLIENT_ID`, `AMADEUS_CLIENT_SECRET`, `AMADEUS_ENV=test\|production` | **Anahtar yok** → demo fallback | Self-Service ücretsiz test kaydı e-posta ile; bu VM’de oluşturulamadı |
+
+Durum uç noktası: `GET /api/status` (değerleri sızdırmaz, sadece varlık).
 
 ## Kaynak stratejisi (19 site)
 
