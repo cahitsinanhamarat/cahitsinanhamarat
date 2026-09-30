@@ -1,6 +1,11 @@
 import { airportStats } from "../airports";
 import { generateDatePairs } from "../dates";
 import type { Offer, SearchRequest, SearchResponse, SourceReport } from "../types";
+import {
+  AIRLINES,
+  buildAirlineReport,
+  probeAirlineDirect,
+} from "./airlines";
 import { ENUYGUN_SOURCE, searchEnuygunRoundTrip } from "./enuygun";
 import { SOURCE_REGISTRY } from "./registry";
 import { searchSkyscannerRoundTrip } from "./skyscanner";
@@ -24,6 +29,38 @@ async function mapPool<T, R>(
   return results;
 }
 
+async function probeOta(url: string): Promise<{
+  ok: boolean;
+  detail: string;
+}> {
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), 12_000);
+  try {
+    const res = await fetch(url, {
+      redirect: "follow",
+      signal: controller.signal,
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; UcuzUcakBileti/0.2)",
+        Accept: "text/html",
+      },
+    });
+    clearTimeout(t);
+    const text = await res.text();
+    const head = text.slice(0, 1500).toLowerCase();
+    if (head.includes("access denied") || res.status === 403) {
+      return { ok: false, detail: `HTTP ${res.status} Access Denied / 403` };
+    }
+    if (head.includes("just a moment") || head.includes("captcha")) {
+      return { ok: false, detail: `HTTP ${res.status} CAPTCHA/challenge` };
+    }
+    if (!res.ok) return { ok: false, detail: `HTTP ${res.status}` };
+    return { ok: true, detail: `HTTP ${res.status} sayfa açıldı; fiyat API yok` };
+  } catch (e) {
+    clearTimeout(t);
+    return { ok: false, detail: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 export async function runSearch(req: SearchRequest): Promise<SearchResponse> {
   const pairs = generateDatePairs({
     earliest: req.earliest,
@@ -38,8 +75,9 @@ export async function runSearch(req: SearchRequest): Promise<SearchResponse> {
   let enuygunWorking = false;
   let enuygunTestedAt: string | undefined;
   let enuygunRoute: string | undefined;
+  const airlineOfferCounts = new Map<string, number>();
+  const carriersSeen = new Set<string>();
 
-  // Skyscanner: probe once on first pair (partner API if key; else honest inaccessible).
   const first = pairs[0];
   let skyscannerReport: SourceReport | undefined;
   if (first) {
@@ -57,15 +95,21 @@ export async function runSearch(req: SearchRequest): Promise<SearchResponse> {
     }
   }
 
+  // Direct airline probes (parallel, no price scrape)
+  const directProbes = await Promise.all(
+    AIRLINES.map(async (a) => ({ airline: a, direct: await probeAirlineDirect(a) })),
+  );
+
   const pairResults = await mapPool(pairs, 2, async (pair) => {
     try {
-      const { offers: found } = await searchEnuygunRoundTrip({
+      const found = await searchEnuygunRoundTrip({
         originCode: req.origin,
         destinationCode: req.destination,
         departIso: pair.depart,
         returnIso: pair.return,
         adults: req.adults ?? 1,
-        topCombosPerPair: 3,
+        topCombosPerPair: 4,
+        airlinePurePerCarrier: 2,
       });
       return { ok: true as const, found, pair };
     } catch (e) {
@@ -79,11 +123,19 @@ export async function runSearch(req: SearchRequest): Promise<SearchResponse> {
 
   for (const r of pairResults) {
     if (r.ok) {
-      if (r.found.length) {
+      for (const c of r.found.carriersSeen) carriersSeen.add(c);
+      if (r.found.offers.length || r.found.airlineOffers.length) {
         enuygunWorking = true;
         enuygunTestedAt = new Date().toISOString();
         enuygunRoute = `${req.origin}→${req.destination} ${r.pair.depart}–${r.pair.return}`;
-        offers.push(...r.found);
+        offers.push(...r.found.offers);
+        for (const ao of r.found.airlineOffers) {
+          offers.push(ao);
+          airlineOfferCounts.set(
+            ao.sourceId,
+            (airlineOfferCounts.get(ao.sourceId) || 0) + 1,
+          );
+        }
       }
     } else {
       errors.push({
@@ -92,6 +144,12 @@ export async function runSearch(req: SearchRequest): Promise<SearchResponse> {
       });
     }
   }
+
+  // Quick OTA probes
+  const [turnaProbe, obiletProbe] = await Promise.all([
+    probeOta("https://www.turna.com/ucak-bileti"),
+    probeOta("https://www.obilet.com/ucak-bileti"),
+  ]);
 
   const dedup = new Map<string, Offer>();
   for (const o of offers) {
@@ -112,6 +170,23 @@ export async function runSearch(req: SearchRequest): Promise<SearchResponse> {
   );
 
   const stats = airportStats();
+  const routeNote = enuygunRoute || (first ? `${req.origin}→${req.destination}` : undefined);
+
+  const airlineReports = directProbes.map(({ airline, direct }) =>
+    buildAirlineReport({
+      airline,
+      direct,
+      viaEnuygunOffers: airlineOfferCounts.get(airline.id) || 0,
+      lastTestRoute: routeNote,
+      extraLimitations:
+        airline.iata && carriersSeen.has(airline.iata) && !airlineOfferCounts.get(airline.id)
+          ? [
+              `ENUYGUN meta listesinde ${airline.iata} geçti ancak dönen top sonuçlarda saf ${airline.iata}+${airline.iata} RT yoktu.`,
+            ]
+          : [],
+    }),
+  );
+
   const sources: SourceReport[] = SOURCE_REGISTRY.map((s) => {
     if (s.id === "enuygun") {
       return {
@@ -126,11 +201,40 @@ export async function runSearch(req: SearchRequest): Promise<SearchResponse> {
         lastTestRoute: enuygunRoute ?? s.lastTestRoute,
       };
     }
-    if (s.id === "skyscanner" && skyscannerReport) {
-      return skyscannerReport;
+    if (s.id === "skyscanner" && skyscannerReport) return skyscannerReport;
+    const ar = airlineReports.find((x) => x.id === s.id);
+    if (ar) return ar;
+    if (s.id === "turna") {
+      return {
+        ...s,
+        status: turnaProbe.ok ? "partial" : "inaccessible",
+        realPriceVerified: false,
+        lastTestedAt: new Date().toISOString(),
+        limitations: [
+          turnaProbe.detail,
+          "Doğrulanmış fiyat API’si bulunamadı; link-only tamamlanmış sayılmaz.",
+        ],
+      };
+    }
+    if (s.id === "obilet") {
+      return {
+        ...s,
+        status: obiletProbe.ok ? "partial" : "inaccessible",
+        realPriceVerified: false,
+        lastTestedAt: new Date().toISOString(),
+        limitations: [
+          obiletProbe.detail,
+          "Ana sayfa erişilebilir; ücretsiz fiyat okuma API’si doğrulanamadı (link-only ≠ done).",
+        ],
+      };
     }
     return s;
   });
+
+  // Ensure airline reports appear even if registry order differs
+  for (const ar of airlineReports) {
+    if (!sources.some((s) => s.id === ar.id)) sources.push(ar);
+  }
 
   return {
     offers: sorted,
@@ -139,7 +243,7 @@ export async function runSearch(req: SearchRequest): Promise<SearchResponse> {
     meta: {
       generatedAt: new Date().toISOString(),
       note:
-        "Sonuçlar doğrulanmış gidiş-dönüş toplam fiyatına göre ucuz→pahalı sıralıdır. Kaynak önceliği yalnızca araştırma sırasıdır. Uydurma fiyat yok. Skyscanner doğrulanmış fiyat için partner API anahtarı gerektirir.",
+        "Doğrulanmış RT toplam fiyatına göre ucuz→pahalı. Havayolu satırları “Havayolu · ENUYGUN” ise doğrudan NDC değil, ENUYGUN RT aramasından saf taşıyıcı kombinasyonudur. THY için iki ayrı OW toplanmaz. Uydurma fiyat yok.",
       airportCount: stats.airportCount,
       cityGroupCount: stats.cityGroupCount,
     },

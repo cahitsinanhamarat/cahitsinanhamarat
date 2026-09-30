@@ -7,6 +7,12 @@ import type {
   Offer,
   SourceReport,
 } from "../types";
+import {
+  AIRLINES,
+  airlineByIata,
+  isPureCarrierOffer,
+  toAirlineViaEnuygunOffer,
+} from "./airlines";
 
 const AIRLINE_NAMES: Record<string, string> = {
   PC: "Pegasus",
@@ -70,14 +76,14 @@ interface AllocatePayload {
 export const ENUYGUN_SOURCE: SourceReport = {
   id: "enuygun",
   name: "ENUYGUN",
-  priority: 1,
+  priority: 10,
   status: "working",
   realPriceVerified: true,
   passengerBaggageReadable: true,
   limitations: [
     "Resmi Wingie/ENUYGUN MCP (mcp.enuygun.com) üzerinden okunur.",
-    "Gidiş ve dönüş ayrı listelenir; toplam = seçilen gidiş + dönüş standart fiyatları.",
-    "Koşullu indirimler (üye/banka/kupon) varsa ayrı etiketlenir; sıralama standart toplam üzerinden yapılır.",
+    "Gidiş-dönüş araması: seçilen gidiş + dönüş standart fiyatları (aynı RT oturumu).",
+    "Koşullu indirimler ayrı etiketlenir.",
   ],
 };
 
@@ -88,7 +94,13 @@ export async function searchEnuygunRoundTrip(params: {
   returnIso: string;
   adults?: number;
   topCombosPerPair?: number;
-}): Promise<{ offers: Offer[]; searchUrl?: string }> {
+  airlinePurePerCarrier?: number;
+}): Promise<{
+  offers: Offer[];
+  airlineOffers: Offer[];
+  searchUrl?: string;
+  carriersSeen: string[];
+}> {
   const client = new EnuygunMcpClient();
   await client.initialize();
 
@@ -113,32 +125,120 @@ export async function searchEnuygunRoundTrip(params: {
   const airlineNames = new Map(
     (payload.data.airlines ?? []).map((a) => [a.code, a.name]),
   );
+  for (const [k, v] of Object.entries(AIRLINE_NAMES)) {
+    if (!airlineNames.has(k)) airlineNames.set(k, v);
+  }
+
   const departures = payload.data.flights.departure ?? [];
   const returns = payload.data.flights.return ?? [];
+  const carriersSeen = [
+    ...new Set([
+      ...departures.map((f) => f.segments[0]?.marketing_airline).filter(Boolean),
+      ...returns.map((f) => f.segments[0]?.marketing_airline).filter(Boolean),
+      ...(payload.data.airlines ?? []).map((a) => a.code),
+    ]),
+  ] as string[];
+
   if (!departures.length || !returns.length) {
-    return { offers: [], searchUrl: payload.data.search_url };
+    return {
+      offers: [],
+      airlineOffers: [],
+      searchUrl: payload.data.search_url,
+      carriersSeen,
+    };
   }
 
   type Combo = { total: number; dep: EnuygunFlight; ret: EnuygunFlight };
-  const combos: Combo[] = [];
+  const allCombos: Combo[] = [];
   for (const dep of departures) {
     for (const ret of returns) {
-      combos.push({
+      allCombos.push({
         total: dep.price_breakdown.total + ret.price_breakdown.total,
         dep,
         ret,
       });
     }
   }
-  combos.sort((a, b) => a.total - b.total);
-  const top = combos.slice(0, params.topCombosPerPair ?? 5);
+  allCombos.sort((a, b) => a.total - b.total);
 
+  const topGeneral = allCombos.slice(0, params.topCombosPerPair ?? 5);
   const offers: Offer[] = [];
-  for (const c of top) {
-    let bookingUrl =
-      payload.data.short_search_url ||
-      payload.data.search_url ||
-      "https://www.enuygun.com/ucak-bileti/";
+  for (const c of topGeneral) {
+    offers.push(
+      await comboToOffer(
+        client,
+        c,
+        params,
+        payload.data,
+        airlineNames,
+        "enuygun",
+        true,
+      ),
+    );
+  }
+
+  // Pure-carrier RT combos for priority airlines (still from same RT search).
+  const airlineOffers: Offer[] = [];
+  const per = params.airlinePurePerCarrier ?? 2;
+  for (const airline of AIRLINES) {
+    const pure = allCombos
+      .filter(
+        (c) =>
+          c.dep.segments[0]?.marketing_airline === airline.iata &&
+          c.ret.segments[0]?.marketing_airline === airline.iata,
+      )
+      .slice(0, per);
+    for (const c of pure) {
+      // Reuse allocate from identical general offer when present; else search URL.
+      const existing = offers.find(
+        (o) =>
+          o.outbound.flightNumber ===
+            c.dep.segments.map((s) => s.flight_number).join(" + ") &&
+          o.inbound.flightNumber ===
+            c.ret.segments.map((s) => s.flight_number).join(" + ") &&
+          o.totalPriceTry === c.total,
+      );
+      const base = existing
+        ? { ...existing }
+        : await comboToOffer(
+            client,
+            c,
+            params,
+            payload.data,
+            airlineNames,
+            "enuygun",
+            false,
+          );
+      airlineOffers.push(toAirlineViaEnuygunOffer(base, airline));
+    }
+  }
+
+  return {
+    offers,
+    airlineOffers,
+    searchUrl: payload.data.search_url,
+    carriersSeen,
+  };
+}
+
+async function comboToOffer(
+  client: EnuygunMcpClient,
+  c: { total: number; dep: EnuygunFlight; ret: EnuygunFlight },
+  params: {
+    originCode: string;
+    destinationCode: string;
+    departIso: string;
+    returnIso: string;
+    adults?: number;
+  },
+  data: NonNullable<EnuygunSearchPayload["data"]>,
+  airlineNames: Map<string, string>,
+  sourceId: string,
+  allocate: boolean,
+): Promise<Offer> {
+  let bookingUrl =
+    data.short_search_url || data.search_url || "https://www.enuygun.com/ucak-bileti/";
+  if (allocate) {
     try {
       const alloc = await client.callTool<AllocatePayload>("flight_allocate", {
         flight_ids: [c.dep.enuid, c.ret.enuid],
@@ -147,38 +247,41 @@ export async function searchEnuygunRoundTrip(params: {
         bookingUrl = alloc.data.deep_link_url;
       }
     } catch {
-      // Keep search URL fallback — still a verified price row with source link.
+      // keep search URL
     }
-
-    const outbound = toLeg(c.dep, airlineNames);
-    const inbound = toLeg(c.ret, airlineNames);
-    const discounts = [
-      ...extractDiscounts(c.dep, "Gidiş"),
-      ...extractDiscounts(c.ret, "Dönüş"),
-    ];
-
-    offers.push({
-      id: `enuygun:${c.dep.enuid}|${c.ret.enuid}`,
-      sourceId: "enuygun",
-      sourceName: "ENUYGUN",
-      totalPriceTry: c.total,
-      currency: "TRY",
-      priceKind: discounts.length ? "conditional" : "standard",
-      conditionalDiscounts: discounts,
-      outbound,
-      inbound,
-      stayDays: stayDaysBetween(params.departIso, params.returnIso),
-      bookingUrl,
-      searchUrl: payload.data.search_url,
-      verifiedAt: new Date().toISOString(),
-      notes: [
-        "Fiyat ENUYGUN MCP canlı aramasından doğrulandı (standart kamu fiyatı).",
-        `Yolcu: ${params.adults ?? 1} yetişkin · Ekonomi`,
-      ],
-    });
   }
 
-  return { offers, searchUrl: payload.data.search_url };
+  const outbound = toLeg(c.dep, airlineNames);
+  const inbound = toLeg(c.ret, airlineNames);
+  const discounts = [
+    ...extractDiscounts(c.dep, "Gidiş"),
+    ...extractDiscounts(c.ret, "Dönüş"),
+  ];
+  const outAirline = airlineByIata(outbound.airlineCode);
+  const inAirline = airlineByIata(inbound.airlineCode);
+
+  return {
+    id: `${sourceId}:${c.dep.enuid}|${c.ret.enuid}`,
+    sourceId,
+    sourceName: "ENUYGUN",
+    totalPriceTry: c.total,
+    currency: "TRY",
+    priceKind: discounts.length ? "conditional" : "standard",
+    conditionalDiscounts: discounts,
+    outbound,
+    inbound,
+    stayDays: stayDaysBetween(params.departIso, params.returnIso),
+    bookingUrl,
+    searchUrl: data.search_url,
+    verifiedAt: new Date().toISOString(),
+    notes: [
+      "Fiyat ENUYGUN MCP canlı gidiş-dönüş aramasından doğrulandı.",
+      `Yolcu: ${params.adults ?? 1} yetişkin · Ekonomi`,
+      outAirline && inAirline && outAirline.iata === inAirline.iata
+        ? `Saf ${outAirline.name} gidiş+dönüş.`
+        : `Gidiş ${outbound.airlineName} · Dönüş ${inbound.airlineName}.`,
+    ],
+  };
 }
 
 function toLeg(
@@ -235,3 +338,5 @@ function extractDiscounts(
   }
   return out;
 }
+
+export { isPureCarrierOffer };

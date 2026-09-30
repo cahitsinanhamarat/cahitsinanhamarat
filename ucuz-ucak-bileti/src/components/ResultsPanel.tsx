@@ -21,6 +21,10 @@ function OfferRow({ offer, index }: { offer: Offer; index: number }) {
       <div className="offer-price">
         <strong>{formatTry(offer.totalPriceTry)}</strong>
         <span className="offer-source">{offer.sourceName}</span>
+        {offer.sourceName.includes("ENUYGUN") &&
+          offer.sourceId !== "enuygun" && (
+            <span className="badge-via">OTA üzerinden · doğrulanmış</span>
+          )}
         {offer.priceKind === "conditional" && (
           <span className="badge-conditional">Koşullu indirim ayrı</span>
         )}

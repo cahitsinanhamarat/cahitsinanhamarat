@@ -12,9 +12,11 @@ Türkiye çıkışlı **gidiş-dönüş** uçuşlarda doğrulanmış toplam fiya
 | Kaynak | Durum | Not |
 |--------|--------|-----|
 | **ENUYGUN** | working | Resmi MCP — gerçek TRY (yurt içi + yurt dışı) |
-| **Skyscanner TR** | inaccessible | Partner API key yok (401); curl CAPTCHA; link-only ≠ verified. `SKYSCANNER_API_KEY` yolu hazır |
-| Pegasus | partial | Port/status OK; takvim/fiyat POST Akamai 403 |
-| AJet | inaccessible | Site timeout; ENUYGUN’da VF görünür |
+| **AJet** | partial | Doğrudan fare API yok; **VF+VF RT · ENUYGUN** doğrulanmış |
+| **Pegasus** | partial | Takvim 403; **PC+PC RT · ENUYGUN** doğrulanmış |
+| **Turkish Airlines** | partial/inaccessible | NDC partner; OW+OW yok; örnek aramada TK+TK yok |
+| SunExpress / Corendon | inaccessible | Cloudflare; sezona bağlı ENUYGUN XQ/XC |
+| **Skyscanner TR** | inaccessible | Partner key / CAPTCHA; hard-dep değil |
 
 **Havalimanları:** ~3200+ IATA + “tüm havalimanları” şehir grupları (ISTA, LON, PAR, NYC, …).
 
