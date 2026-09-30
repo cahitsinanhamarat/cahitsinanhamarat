@@ -67,6 +67,9 @@ export function AirportPicker({ label, value, onChange, placeholder }: Props) {
               >
                 <span className="picker-code">{a.code}</span>
                 <span>{a.label}</span>
+                {a.kind === "city" && (
+                  <span className="picker-city-tag">tüm</span>
+                )}
               </button>
             </li>
           ))}

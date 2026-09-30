@@ -11,11 +11,14 @@ Türkiye çıkışlı **gidiş-dönüş** uçuşlarda doğrulanmış toplam fiya
 
 | Kaynak | Durum | Not |
 |--------|--------|-----|
-| **ENUYGUN** | working | Resmi MCP `https://mcp.enuygun.com/mcp` — gerçek TRY fiyat, saat, bagaj, rezervasyon linki |
-| Pegasus | partial | Port/status ok; takvim/fiyat POST Akamai 403 (bu ortam) |
-| AJet | inaccessible | Site timeout; partner API anahtarı yok. ENUYGUN’da VF teklifleri görünür |
+| **ENUYGUN** | working | Resmi MCP — gerçek TRY (yurt içi + yurt dışı) |
+| **Skyscanner TR** | inaccessible | Partner API key yok (401); curl CAPTCHA; link-only ≠ verified. `SKYSCANNER_API_KEY` yolu hazır |
+| Pegasus | partial | Port/status OK; takvim/fiyat POST Akamai 403 |
+| AJet | inaccessible | Site timeout; ENUYGUN’da VF görünür |
 
-Araştırma raporu: proje store `docs/flight-sources-research.md`
+**Havalimanları:** ~3200+ IATA + “tüm havalimanları” şehir grupları (ISTA, LON, PAR, NYC, …).
+
+Araştırma: proje store `docs/flight-sources-research.md`
 
 ## Çalıştırma
 

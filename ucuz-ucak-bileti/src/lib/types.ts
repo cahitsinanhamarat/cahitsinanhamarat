@@ -14,6 +14,9 @@ export interface Airport {
   country: string;
   /** City/metro label shown in picker (may cover multiple airports). */
   label: string;
+  kind?: "airport" | "city";
+  /** Member IATA codes when kind=city (tüm havalimanları). */
+  members?: string[];
 }
 
 export interface FlightLeg {
@@ -84,6 +87,8 @@ export interface SearchResponse {
   meta: {
     generatedAt: string;
     note: string;
+    airportCount?: number;
+    cityGroupCount?: number;
   };
   errors: Array<{ sourceId: string; message: string }>;
 }

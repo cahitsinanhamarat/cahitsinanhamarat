@@ -198,6 +198,18 @@ a {
   min-width: 3.2rem;
 }
 
+.picker-city-tag {
+  margin-left: auto;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--sea);
+  border: 1px solid rgba(14, 107, 109, 0.35);
+  border-radius: 999px;
+  padding: 0.1rem 0.4rem;
+}
+
 .form-hint {
   margin: 0.75rem 0;
   color: var(--ink-soft);

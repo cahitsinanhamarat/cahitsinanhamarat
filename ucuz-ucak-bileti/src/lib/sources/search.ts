@@ -1,7 +1,9 @@
+import { airportStats } from "../airports";
 import { generateDatePairs } from "../dates";
 import type { Offer, SearchRequest, SearchResponse, SourceReport } from "../types";
 import { ENUYGUN_SOURCE, searchEnuygunRoundTrip } from "./enuygun";
 import { SOURCE_REGISTRY } from "./registry";
+import { searchSkyscannerRoundTrip } from "./skyscanner";
 
 async function mapPool<T, R>(
   items: T[],
@@ -36,6 +38,24 @@ export async function runSearch(req: SearchRequest): Promise<SearchResponse> {
   let enuygunWorking = false;
   let enuygunTestedAt: string | undefined;
   let enuygunRoute: string | undefined;
+
+  // Skyscanner: probe once on first pair (partner API if key; else honest inaccessible).
+  const first = pairs[0];
+  let skyscannerReport: SourceReport | undefined;
+  if (first) {
+    const sky = await searchSkyscannerRoundTrip({
+      originCode: req.origin,
+      destinationCode: req.destination,
+      departIso: first.depart,
+      returnIso: first.return,
+      adults: req.adults ?? 1,
+    });
+    skyscannerReport = sky.report;
+    if (sky.offers.length) offers.push(...sky.offers);
+    if (sky.error) {
+      errors.push({ sourceId: "skyscanner", message: sky.error });
+    }
+  }
 
   const pairResults = await mapPool(pairs, 2, async (pair) => {
     try {
@@ -73,10 +93,10 @@ export async function runSearch(req: SearchRequest): Promise<SearchResponse> {
     }
   }
 
-  // Deduplicate by flight numbers + dates + price
   const dedup = new Map<string, Offer>();
   for (const o of offers) {
     const key = [
+      o.sourceId,
       o.outbound.flightNumber,
       o.inbound.flightNumber,
       o.outbound.departAt,
@@ -87,25 +107,29 @@ export async function runSearch(req: SearchRequest): Promise<SearchResponse> {
     if (!prev || o.totalPriceTry < prev.totalPriceTry) dedup.set(key, o);
   }
 
-  const sorted = [...dedup.values()].sort((a, b) => {
-    // Standard public totals first; conditional-discount rows still sorted by
-    // their reported total but never invent a lower "promo" sort key.
-    return a.totalPriceTry - b.totalPriceTry;
-  });
+  const sorted = [...dedup.values()].sort(
+    (a, b) => a.totalPriceTry - b.totalPriceTry,
+  );
 
+  const stats = airportStats();
   const sources: SourceReport[] = SOURCE_REGISTRY.map((s) => {
-    if (s.id !== "enuygun") return s;
-    return {
-      ...ENUYGUN_SOURCE,
-      status: enuygunWorking
-        ? "working"
-        : errors.length
-          ? "partial"
-          : ENUYGUN_SOURCE.status,
-      realPriceVerified: enuygunWorking,
-      lastTestedAt: enuygunTestedAt ?? s.lastTestedAt,
-      lastTestRoute: enuygunRoute ?? s.lastTestRoute,
-    };
+    if (s.id === "enuygun") {
+      return {
+        ...ENUYGUN_SOURCE,
+        status: enuygunWorking
+          ? "working"
+          : errors.some((e) => e.sourceId === "enuygun")
+            ? "partial"
+            : ENUYGUN_SOURCE.status,
+        realPriceVerified: enuygunWorking,
+        lastTestedAt: enuygunTestedAt ?? s.lastTestedAt,
+        lastTestRoute: enuygunRoute ?? s.lastTestRoute,
+      };
+    }
+    if (s.id === "skyscanner" && skyscannerReport) {
+      return skyscannerReport;
+    }
+    return s;
   });
 
   return {
@@ -115,7 +139,9 @@ export async function runSearch(req: SearchRequest): Promise<SearchResponse> {
     meta: {
       generatedAt: new Date().toISOString(),
       note:
-        "Sonuçlar doğrulanmış gidiş-dönüş toplam fiyatına göre ucuz→pahalı sıralıdır. Kaynak önceliği yalnızca araştırma sırasıdır. Uydurma fiyat yok.",
+        "Sonuçlar doğrulanmış gidiş-dönüş toplam fiyatına göre ucuz→pahalı sıralıdır. Kaynak önceliği yalnızca araştırma sırasıdır. Uydurma fiyat yok. Skyscanner doğrulanmış fiyat için partner API anahtarı gerektirir.",
+      airportCount: stats.airportCount,
+      cityGroupCount: stats.cityGroupCount,
     },
     errors,
   };

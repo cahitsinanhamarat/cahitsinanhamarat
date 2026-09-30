@@ -153,6 +153,12 @@ export function ResultsPanel({
           {data.offers.length} doğrulanmış teklif · ucuz → pahalı
         </h2>
         <p className="muted">{data.meta.note}</p>
+        {(data.meta.airportCount || data.meta.cityGroupCount) && (
+          <p className="muted">
+            Havalimanı verisi: {data.meta.airportCount ?? 0} IATA ·{" "}
+            {data.meta.cityGroupCount ?? 0} “tüm havalimanları” şehir grubu
+          </p>
+        )}
         <p className="muted">
           Taranan tarih çiftleri:{" "}
           {data.searchedPairs

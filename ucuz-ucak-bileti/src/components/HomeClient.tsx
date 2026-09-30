@@ -16,10 +16,11 @@ export function HomeClient() {
         <div className="hero-bg" aria-hidden />
         <div className="hero-inner">
           <p className="brand">Ucuz Uçak Bileti</p>
-          <h1>Türkiye çıkışlı gidiş-dönüşü gerçek fiyatla karşılaştır</h1>
+          <h1>Yurt içi ve yurt dışı gidiş-dönüşü gerçek fiyatla karşılaştır</h1>
           <p className="lede">
-            Doğrulanmış toplam fiyat · ucuzdan pahalıya. Uydurma rakam yok;
-            koşullu indirimler ayrı etiketlenir.
+            Türkiye çıkışlı domestic + international. Şehirlerde “tüm
+            havalimanları”. Doğrulanmış toplam fiyat · ucuzdan pahalıya. Uydurma
+            rakam yok.
           </p>
           <SearchForm
             onLoading={setLoading}
