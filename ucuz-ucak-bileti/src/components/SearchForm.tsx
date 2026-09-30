@@ -53,7 +53,7 @@ export function SearchForm({ onResult, onLoading }: Props) {
           minStayDays: minStay,
           maxStayDays: maxStay,
           adults,
-          maxDatePairs: 4,
+          maxDatePairs: 2,
         }),
       });
       const data = await res.json();

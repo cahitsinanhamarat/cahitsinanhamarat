@@ -67,7 +67,7 @@ export async function runSearch(req: SearchRequest): Promise<SearchResponse> {
     latest: req.latest,
     minStayDays: req.minStayDays,
     maxStayDays: req.maxStayDays,
-    maxPairs: req.maxDatePairs ?? 6,
+    maxPairs: req.maxDatePairs ?? 2,
   });
 
   const errors: SearchResponse["errors"] = [];

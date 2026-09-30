@@ -4,7 +4,7 @@ import { runSearch } from "@/lib/sources/search";
 import type { SearchRequest } from "@/lib/types";
 
 export const runtime = "nodejs";
-export const maxDuration = 120;
+export const maxDuration = 180;
 
 export async function POST(req: Request) {
   try {

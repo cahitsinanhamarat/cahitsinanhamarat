@@ -1,4 +1,4 @@
-import { enuygunPlaceName } from "../airports";
+import { enuygunPlaceName, resolveMemberIatas } from "../airports";
 import { fromTrDateTime, stayDaysBetween, toTrDate } from "../dates";
 import { EnuygunMcpClient } from "../mcp/enuygun";
 import type {
@@ -73,6 +73,13 @@ interface AllocatePayload {
   data?: { deep_link_url?: string };
 }
 
+type SearchVariant = {
+  origin: string;
+  destination: string;
+  direct_flight?: boolean;
+  label: string;
+};
+
 export const ENUYGUN_SOURCE: SourceReport = {
   id: "enuygun",
   name: "ENUYGUN",
@@ -83,9 +90,79 @@ export const ENUYGUN_SOURCE: SourceReport = {
   limitations: [
     "Resmi Wingie/ENUYGUN MCP (mcp.enuygun.com) üzerinden okunur.",
     "Gidiş-dönüş araması: seçilen gidiş + dönüş standart fiyatları (aynı RT oturumu).",
+    "THY/AJet için ek IATA ve aktarmasız varyantlar birleştirilir; OW+OW yok.",
     "Koşullu indirimler ayrı etiketlenir.",
   ],
 };
+
+/** Build search variants so THY (IST) and AJet (SAW/city) both surface. */
+export function buildEnuygunVariants(
+  originCode: string,
+  destinationCode: string,
+): SearchVariant[] {
+  const originName = enuygunPlaceName(originCode);
+  const destName = enuygunPlaceName(destinationCode);
+  const originMembers = resolveMemberIatas(originCode);
+  const destMembers = resolveMemberIatas(destinationCode);
+  const destIata =
+    destinationCode.length === 3 && !getCityKind(destinationCode)
+      ? destinationCode.toUpperCase()
+      : destMembers[0];
+
+  const variants: SearchVariant[] = [
+    {
+      origin: originName,
+      destination: destName,
+      label: "city-economy",
+    },
+    {
+      origin: originName,
+      destination: destName,
+      direct_flight: true,
+      label: "city-direct",
+    },
+  ];
+
+  // THY hubs from IST — IATA→IATA pulls thy_ndc RT that city-metro search buries.
+  if (originMembers.includes("IST") || originCode.toUpperCase() === "IST") {
+    variants.push({
+      origin: "IST",
+      destination: destIata || destName,
+      label: "ist-iata",
+    });
+    variants.push({
+      origin: "IST",
+      destination: destIata || destName,
+      direct_flight: true,
+      label: "ist-iata-direct",
+    });
+  }
+
+  // AJet / LCC often priced on SAW.
+  if (originMembers.includes("SAW") || originCode.toUpperCase() === "SAW") {
+    variants.push({
+      origin: "SAW",
+      destination: destIata || destName,
+      label: "saw-iata",
+    });
+  }
+
+  // Dedupe identical origin/dest/direct
+  const seen = new Set<string>();
+  return variants.filter((v) => {
+    const key = `${v.origin}|${v.destination}|${v.direct_flight ? 1 : 0}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function getCityKind(code: string): boolean {
+  // city metro codes used in our data
+  return ["ISTA", "LON", "PAR", "NYC", "ROM", "MIL", "TYO", "OSA", "BJS", "CHI", "WAS", "MOW", "SEL", "YTO", "SAO", "RIO", "BUE", "QSF"].includes(
+    code.toUpperCase(),
+  );
+}
 
 export async function searchEnuygunRoundTrip(params: {
   originCode: string;
@@ -104,64 +181,111 @@ export async function searchEnuygunRoundTrip(params: {
   const client = new EnuygunMcpClient();
   await client.initialize();
 
-  const origin = enuygunPlaceName(params.originCode);
-  const destination = enuygunPlaceName(params.destinationCode);
   const departure_date = toTrDate(params.departIso);
   const return_date = toTrDate(params.returnIso);
-
-  const payload = await client.callTool<EnuygunSearchPayload>("flight_search", {
-    origin,
-    destination,
-    departure_date,
-    return_date,
-    adults: params.adults ?? 1,
-    cabin_class: "ECONOMY",
-  });
-
-  if (!payload.success || !payload.data) {
-    throw new Error(payload.message || "ENUYGUN arama başarısız");
-  }
-
-  const airlineNames = new Map(
-    (payload.data.airlines ?? []).map((a) => [a.code, a.name]),
+  const adults = params.adults ?? 1;
+  const variants = buildEnuygunVariants(
+    params.originCode,
+    params.destinationCode,
   );
-  for (const [k, v] of Object.entries(AIRLINE_NAMES)) {
-    if (!airlineNames.has(k)) airlineNames.set(k, v);
+
+  const airlineNames = new Map<string, string>(Object.entries(AIRLINE_NAMES));
+  const carriersSeen = new Set<string>();
+  let primaryData: NonNullable<EnuygunSearchPayload["data"]> | null = null;
+
+  type Combo = {
+    total: number;
+    dep: EnuygunFlight;
+    ret: EnuygunFlight;
+    data: NonNullable<EnuygunSearchPayload["data"]>;
+    variant: string;
+  };
+
+  const generalCombos: Combo[] = [];
+  const airlineCombosByCarrier = new Map<string, Combo[]>();
+
+  for (const variant of variants) {
+    const args: Record<string, unknown> = {
+      origin: variant.origin,
+      destination: variant.destination,
+      departure_date,
+      return_date,
+      adults,
+      cabin_class: "ECONOMY",
+    };
+    if (variant.direct_flight) args.direct_flight = true;
+
+    let payload: EnuygunSearchPayload;
+    try {
+      payload = await client.callTool<EnuygunSearchPayload>(
+        "flight_search",
+        args,
+      );
+    } catch {
+      continue;
+    }
+    if (!payload.success || !payload.data) continue;
+    if (!primaryData) primaryData = payload.data;
+
+    for (const a of payload.data.airlines ?? []) {
+      airlineNames.set(a.code, a.name);
+    }
+
+    const departures = payload.data.flights.departure ?? [];
+    const returns = payload.data.flights.return ?? [];
+    for (const f of [...departures, ...returns]) {
+      const code = f.segments[0]?.marketing_airline;
+      if (code) carriersSeen.add(code);
+    }
+    if (!departures.length || !returns.length) continue;
+
+    const combos: Combo[] = [];
+    for (const dep of departures) {
+      for (const ret of returns) {
+        combos.push({
+          total: dep.price_breakdown.total + ret.price_breakdown.total,
+          dep,
+          ret,
+          data: payload.data,
+          variant: variant.label,
+        });
+      }
+    }
+    combos.sort((a, b) => a.total - b.total);
+
+    // Cheapest overall from city-economy (and city-direct as backup)
+    if (variant.label === "city-economy" || generalCombos.length === 0) {
+      generalCombos.push(...combos.slice(0, params.topCombosPerPair ?? 4));
+    }
+
+    // Pure-carrier combos only within THIS RT response (never cross-search OW+OW).
+    for (const airline of AIRLINES) {
+      const pure = combos.filter(
+        (c) =>
+          c.dep.segments[0]?.marketing_airline === airline.iata &&
+          c.ret.segments[0]?.marketing_airline === airline.iata,
+      );
+      if (!pure.length) continue;
+      const list = airlineCombosByCarrier.get(airline.iata) || [];
+      list.push(...pure);
+      airlineCombosByCarrier.set(airline.iata, list);
+    }
   }
 
-  const departures = payload.data.flights.departure ?? [];
-  const returns = payload.data.flights.return ?? [];
-  const carriersSeen = [
-    ...new Set([
-      ...departures.map((f) => f.segments[0]?.marketing_airline).filter(Boolean),
-      ...returns.map((f) => f.segments[0]?.marketing_airline).filter(Boolean),
-      ...(payload.data.airlines ?? []).map((a) => a.code),
-    ]),
-  ] as string[];
-
-  if (!departures.length || !returns.length) {
+  if (!primaryData && generalCombos.length === 0) {
     return {
       offers: [],
       airlineOffers: [],
-      searchUrl: payload.data.search_url,
-      carriersSeen,
+      carriersSeen: [...carriersSeen],
     };
   }
 
-  type Combo = { total: number; dep: EnuygunFlight; ret: EnuygunFlight };
-  const allCombos: Combo[] = [];
-  for (const dep of departures) {
-    for (const ret of returns) {
-      allCombos.push({
-        total: dep.price_breakdown.total + ret.price_breakdown.total,
-        dep,
-        ret,
-      });
-    }
-  }
-  allCombos.sort((a, b) => a.total - b.total);
+  generalCombos.sort((a, b) => a.total - b.total);
+  const topGeneral = dedupeCombos(generalCombos).slice(
+    0,
+    params.topCombosPerPair ?? 4,
+  );
 
-  const topGeneral = allCombos.slice(0, params.topCombosPerPair ?? 5);
   const offers: Offer[] = [];
   for (const c of topGeneral) {
     offers.push(
@@ -169,7 +293,7 @@ export async function searchEnuygunRoundTrip(params: {
         client,
         c,
         params,
-        payload.data,
+        c.data,
         airlineNames,
         "enuygun",
         true,
@@ -177,19 +301,26 @@ export async function searchEnuygunRoundTrip(params: {
     );
   }
 
-  // Pure-carrier RT combos for priority airlines (still from same RT search).
-  const airlineOffers: Offer[] = [];
   const per = params.airlinePurePerCarrier ?? 2;
+  const airlineOffers: Offer[] = [];
   for (const airline of AIRLINES) {
-    const pure = allCombos
-      .filter(
-        (c) =>
-          c.dep.segments[0]?.marketing_airline === airline.iata &&
-          c.ret.segments[0]?.marketing_airline === airline.iata,
-      )
-      .slice(0, per);
+    const raw = airlineCombosByCarrier.get(airline.iata) || [];
+    // Prefer NDC providers when present (thy_ndc, anadolujet, pegasus_ndc*).
+    raw.sort((a, b) => {
+      const score = (c: Combo) => {
+        const p = `${c.dep.booking_provider || ""} ${c.ret.booking_provider || ""}`;
+        let s = 0;
+        if (p.includes("thy_ndc")) s += 3;
+        if (p.includes("anadolujet")) s += 2;
+        if (p.includes("pegasus_ndc")) s += 2;
+        return s;
+      };
+      return b.total === a.total
+        ? score(b) - score(a)
+        : a.total - b.total || score(b) - score(a);
+    });
+    const pure = dedupeCombos(raw).slice(0, per);
     for (const c of pure) {
-      // Reuse allocate from identical general offer when present; else search URL.
       const existing = offers.find(
         (o) =>
           o.outbound.flightNumber ===
@@ -204,21 +335,46 @@ export async function searchEnuygunRoundTrip(params: {
             client,
             c,
             params,
-            payload.data,
+            c.data,
             airlineNames,
             "enuygun",
-            false,
+            true,
           );
-      airlineOffers.push(toAirlineViaEnuygunOffer(base, airline));
+      const labeled = toAirlineViaEnuygunOffer(base, airline);
+      if (airline.iata === "TK") {
+        labeled.notes = [
+          ...(labeled.notes || []),
+          "THY RT: aynı ENUYGUN gidiş-dönüş aramasından TK+TK (iki ayrı OW toplamı değil).",
+          c.dep.booking_provider === "thy_ndc" ||
+          c.ret.booking_provider === "thy_ndc"
+            ? "Kaynak sağlayıcı: thy_ndc"
+            : `Sağlayıcı: ${c.dep.booking_provider || "?"}`,
+        ];
+      }
+      airlineOffers.push(labeled);
     }
   }
 
   return {
     offers,
     airlineOffers,
-    searchUrl: payload.data.search_url,
-    carriersSeen,
+    searchUrl: primaryData?.search_url,
+    carriersSeen: [...carriersSeen],
   };
+}
+
+function dedupeCombos<
+  T extends { total: number; dep: EnuygunFlight; ret: EnuygunFlight },
+>(combos: T[]): T[] {
+  const seen = new Set<string>();
+  const out: T[] = [];
+  for (const c of combos) {
+    const key = `${c.dep.enuid}|${c.ret.enuid}|${c.total}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(c);
+  }
+  return out;
 }
 
 async function comboToOffer(
@@ -237,7 +393,9 @@ async function comboToOffer(
   allocate: boolean,
 ): Promise<Offer> {
   let bookingUrl =
-    data.short_search_url || data.search_url || "https://www.enuygun.com/ucak-bileti/";
+    data.short_search_url ||
+    data.search_url ||
+    "https://www.enuygun.com/ucak-bileti/";
   if (allocate) {
     try {
       const alloc = await client.callTool<AllocatePayload>("flight_allocate", {
@@ -296,7 +454,10 @@ function toLeg(
     flightNumber: segs.map((s) => s.flight_number).join(" + "),
     airlineCode: code,
     airlineName:
-      airlineNames.get(code) || AIRLINE_NAMES[code] || flight.booking_provider || code,
+      airlineNames.get(code) ||
+      AIRLINE_NAMES[code] ||
+      flight.booking_provider ||
+      code,
     origin: first.origin,
     destination: last.destination,
     departAt: fromTrDateTime(
