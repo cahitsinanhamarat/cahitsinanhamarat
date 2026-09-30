@@ -145,10 +145,12 @@ export async function runSearch(req: SearchRequest): Promise<SearchResponse> {
     }
   }
 
-  // Quick OTA probes
-  const [turnaProbe, obiletProbe] = await Promise.all([
+  // Quick OTA / meta probes (page reachability only — no scrape)
+  const [turnaProbe, obiletProbe, googleProbe, kayakProbe] = await Promise.all([
     probeOta("https://www.turna.com/ucak-bileti"),
     probeOta("https://www.obilet.com/ucak-bileti"),
+    probeOta("https://www.google.com/travel/flights"),
+    probeOta("https://www.kayak.com.tr/flights"),
   ]);
 
   const dedup = new Map<string, Offer>();
@@ -225,6 +227,32 @@ export async function runSearch(req: SearchRequest): Promise<SearchResponse> {
         limitations: [
           obiletProbe.detail,
           "Ana sayfa erişilebilir; ücretsiz fiyat okuma API’si doğrulanamadı (link-only ≠ done).",
+        ],
+      };
+    }
+    if (s.id === "google-flights") {
+      return {
+        ...s,
+        status: "inaccessible",
+        realPriceVerified: false,
+        lastTestedAt: new Date().toISOString(),
+        limitations: [
+          googleProbe.detail,
+          "Sayfa açılabilir; ücretsiz doğrulanmış booking fiyat API’si yok (scrape/CAPTCHA yok).",
+          "Takvim tahmini ≠ doğrulanmış rezervasyon fiyatı.",
+        ],
+      };
+    }
+    if (s.id === "kayak") {
+      return {
+        ...s,
+        status: "inaccessible",
+        realPriceVerified: false,
+        lastTestedAt: new Date().toISOString(),
+        limitations: [
+          kayakProbe.detail,
+          "Kayak.com.tr sayfa açılır; partner/ToS dışı otomatik fiyat okuma yok.",
+          "Link-only / scrape tamamlanmış sayılmaz.",
         ],
       };
     }

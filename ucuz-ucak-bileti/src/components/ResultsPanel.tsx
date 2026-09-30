@@ -150,6 +150,18 @@ export function ResultsPanel({
     );
   }
 
+  const PRIORITY_AIRLINES = ["ajet", "turkish-airlines"] as const;
+  const highlightAirlines = PRIORITY_AIRLINES.map((id) => {
+    const best = data.offers
+      .filter((o) => o.sourceId === id)
+      .sort((a, b) => a.totalPriceTry - b.totalPriceTry)[0];
+    return best ? { id, offer: best } : { id, offer: null };
+  });
+  const hasAirlineHighlight = highlightAirlines.some((h) => h.offer);
+  const missingPriority = highlightAirlines
+    .filter((h) => !h.offer)
+    .map((h) => (h.id === "ajet" ? "AJet" : "Turkish Airlines"));
+
   return (
     <div className="results">
       <header className="results-header">
@@ -182,7 +194,35 @@ export function ResultsPanel({
           </details>
         )}
       </header>
+
+      {(hasAirlineHighlight || missingPriority.length > 0) && (
+        <section className="airline-pin" aria-label="AJet ve THY fiyatları">
+          <h3>AJet &amp; THY</h3>
+          <p className="muted">
+            Aynı ENUYGUN gidiş-dönüş oturumundan VF+VF / TK+TK (iki ayrı OW
+            toplamı değil).
+          </p>
+          {missingPriority.length > 0 && (
+            <p className="muted">
+              Bu pencerede yok: {missingPriority.join(", ")}. Tarih veya rota
+              değiştirin.
+            </p>
+          )}
+          <div className="offer-list airline-pin-list">
+            {highlightAirlines.map(
+              (h, i) =>
+                h.offer && (
+                  <OfferRow key={`pin-${h.offer.id}`} offer={h.offer} index={i} />
+                ),
+            )}
+          </div>
+        </section>
+      )}
+
       <div className="offer-list">
+        {hasAirlineHighlight && data.offers.length > 0 && (
+          <h3 className="all-offers-title">Tüm teklifler · ucuz → pahalı</h3>
+        )}
         {data.offers.map((o, i) => (
           <OfferRow key={o.id} offer={o} index={i} />
         ))}

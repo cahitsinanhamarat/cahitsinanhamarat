@@ -6,17 +6,20 @@ Türkiye çıkışlı **gidiş-dönüş** uçuşlarda doğrulanmış toplam fiya
 - CAPTCHA bypass / exploit scraping **yok**
 - Sonuçlar kaynak önceliğine göre değil, **RT toplam fiyata** göre ucuz→pahalı
 - Koşullu indirimler (üyelik/banka/uygulama/kupon) standart fiyattan **ayrı** etiketlenir
+- AJet & THY sonuçlarda ayrıca vurgulanır (aynı RT oturumundan VF+VF / TK+TK; OW+OW yok)
 
-## Çalışan kaynak (v1)
+## Kaynak durumu (v1)
 
 | Kaynak | Durum | Not |
 |--------|--------|-----|
 | **ENUYGUN** | working | Resmi MCP — gerçek TRY (yurt içi + yurt dışı) |
 | **AJet** | partial | Doğrudan fare API yok; **VF+VF RT · ENUYGUN** doğrulanmış |
+| **Turkish Airlines** | partial | NDC partner yok; **TK+TK RT · ENUYGUN** (`thy_ndc`); OW+OW yok |
 | **Pegasus** | partial | Takvim 403; **PC+PC RT · ENUYGUN** doğrulanmış |
-| **Turkish Airlines** | partial/inaccessible | NDC partner; OW+OW yok; örnek aramada TK+TK yok |
-| SunExpress / Corendon | inaccessible | Cloudflare; sezona bağlı ENUYGUN XQ/XC |
+| **SunExpress** | partial | Cloudflare doğrudan; **XQ+XQ · ENUYGUN** (AYT hub) |
+| Corendon | inaccessible | Cloudflare; sezona bağlı XC+XC |
 | **Skyscanner TR** | inaccessible | Partner key / CAPTCHA; hard-dep değil |
+| Turna / Obilet / Google / Kayak | inaccessible veya partial | Fiyat API yok / engel |
 
 **Havalimanları:** ~3200+ IATA + “tüm havalimanları” şehir grupları (ISTA, LON, PAR, NYC, …).
 
@@ -44,4 +47,4 @@ npm run build && npm start
 
 ## Notlar
 
-Deep-link-only sonuçlar “tamamlanmış fiyat entegrasyonu” sayılmaz. ENUYGUN MCP canlı fiyat okur; Pegasus/AJet doğrudan fiyatı bu ortamda doğrulanamadı — sonraki iterasyonlarda eklenecek.
+Deep-link-only sonuçlar “tamamlanmış fiyat entegrasyonu” sayılmaz. Havayolu satırları `Havayolu · ENUYGUN` etiketiyle OTA üzerinden doğrulanmış RT fiyatıdır.

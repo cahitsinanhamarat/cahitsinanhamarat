@@ -280,6 +280,28 @@ a {
   margin: 1.25rem 0 2rem;
 }
 
+.airline-pin {
+  margin: 1.5rem 0 0.5rem;
+  padding: 1rem 1.1rem 0.25rem;
+  border-left: 3px solid var(--coral);
+  background: linear-gradient(
+    90deg,
+    rgba(196, 92, 38, 0.08),
+    transparent 70%
+  );
+}
+
+.airline-pin h3,
+.all-offers-title {
+  margin: 0 0 0.35rem;
+  font-family: var(--font-display), Georgia, serif;
+  font-size: 1.25rem;
+}
+
+.airline-pin-list {
+  margin-top: 0.75rem;
+}
+
 .offer {
   background: rgba(255, 255, 255, 0.86);
   border: 1px solid var(--line);

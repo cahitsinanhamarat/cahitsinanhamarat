@@ -90,7 +90,8 @@ export const ENUYGUN_SOURCE: SourceReport = {
   limitations: [
     "Resmi Wingie/ENUYGUN MCP (mcp.enuygun.com) üzerinden okunur.",
     "Gidiş-dönüş araması: seçilen gidiş + dönüş standart fiyatları (aynı RT oturumu).",
-    "THY/AJet için ek IATA ve aktarmasız varyantlar birleştirilir; OW+OW yok.",
+    "THY/AJet için ek IST/SAW IATA ve aktarmasız varyantlar birleştirilir; OW+OW yok.",
+    "SunExpress/Corendon için AYT hub IATA varyantları eklenir (sezona bağlı).",
     "Koşullu indirimler ayrı etiketlenir.",
   ],
 };
@@ -144,6 +145,47 @@ export function buildEnuygunVariants(
       origin: "SAW",
       destination: destIata || destName,
       label: "saw-iata",
+    });
+    variants.push({
+      origin: "SAW",
+      destination: destIata || destName,
+      direct_flight: true,
+      label: "saw-iata-direct",
+    });
+  }
+
+  // SunExpress / Corendon hubs — AYT IATA pulls seasonal XQ/XC that city search buries.
+  const originIata =
+    originCode.length === 3 && !getCityKind(originCode)
+      ? originCode.toUpperCase()
+      : originMembers[0];
+  if (originMembers.includes("AYT") || originCode.toUpperCase() === "AYT") {
+    variants.push({
+      origin: "AYT",
+      destination: destIata || destName,
+      label: "ayt-origin-iata",
+    });
+    variants.push({
+      origin: "AYT",
+      destination: destIata || destName,
+      direct_flight: true,
+      label: "ayt-origin-direct",
+    });
+  }
+  if (
+    destMembers.includes("AYT") ||
+    destinationCode.toUpperCase() === "AYT"
+  ) {
+    variants.push({
+      origin: originIata || originName,
+      destination: "AYT",
+      label: "ayt-dest-iata",
+    });
+    variants.push({
+      origin: originIata || originName,
+      destination: "AYT",
+      direct_flight: true,
+      label: "ayt-dest-direct",
     });
   }
 

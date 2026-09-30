@@ -48,10 +48,15 @@ export function generateDatePairs(options: {
   // Evenly sample across the sorted list so the window is covered.
   all.sort((a, b) => a.depart.localeCompare(b.depart) || a.stayDays - b.stayDays);
   const picked: typeof all = [];
-  const step = (all.length - 1) / (maxPairs - 1);
-  for (let i = 0; i < maxPairs; i++) {
-    const idx = Math.round(i * step);
-    picked.push(all[idx]);
+  if (maxPairs === 1) {
+    // Mid-window pick — avoid division by zero when maxPairs-1 === 0.
+    picked.push(all[Math.floor((all.length - 1) / 2)]);
+  } else {
+    const step = (all.length - 1) / (maxPairs - 1);
+    for (let i = 0; i < maxPairs; i++) {
+      const idx = Math.round(i * step);
+      picked.push(all[idx]!);
+    }
   }
   // Deduplicate identical pairs from rounding.
   const seen = new Set<string>();
